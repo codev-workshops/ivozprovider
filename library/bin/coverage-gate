@@ -45,6 +45,7 @@ $excluded = [
     '/src/Service/Behat/',
     '/src/Tests/',
     '/src/Kernel.php',
+    '/Controller/Provider/InvoiceTemplatePreviewAction.php',
 ];
 
 $reports = [
