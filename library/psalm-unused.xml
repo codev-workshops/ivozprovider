@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<psalm
+    errorLevel="1"
+    findUnusedCode="true"
+    resolveFromConfigFile="true"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="https://getpsalm.org/schema/config"
+    xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
+>
+    <issueHandlers>
+        <!-- Report unused-code issues (these are suppressed in the default psalm.xml) -->
+        <UnusedClass errorLevel="error" />
+        <PossiblyUnusedMethod errorLevel="error" />
+        <PossiblyUnusedProperty errorLevel="error" />
+
+        <!-- Silence everything else so the report only contains unused-code findings -->
+        <PossiblyUnusedParam errorLevel="suppress" />
+        <PossiblyUnusedReturnValue errorLevel="suppress" />
+        <UnusedParam errorLevel="suppress" />
+        <UnusedProperty errorLevel="suppress" />
+        <UnusedMethodCall errorLevel="suppress" />
+        <UnusedVariable errorLevel="suppress" />
+        <UnusedClosureParam errorLevel="suppress" />
+        <PossiblyNullReference errorLevel="suppress" />
+        <PossiblyNullOperand errorLevel="suppress" />
+        <MoreSpecificImplementedParamType errorLevel="suppress" />
+        <RedundantConditionGivenDocblockType errorLevel="suppress" />
+        <PropertyNotSetInConstructor errorLevel="suppress" />
+        <MixedReturnTypeCoercion errorLevel="suppress" />
+        <MixedReturnStatement errorLevel="suppress" />
+        <MixedInferredReturnType errorLevel="suppress" />
+        <MixedArrayAccess errorLevel="suppress" />
+        <MixedAssignment errorLevel="suppress" />
+        <DeprecatedConstant errorLevel="suppress" />
+        <MoreSpecificReturnType errorLevel="suppress" />
+        <LessSpecificReturnStatement errorLevel="suppress" />
+    </issueHandlers>
+    <projectFiles>
+        <directory name="Ivoz" />
+        <ignoreFiles>
+            <directory name="vendor" />
+        </ignoreFiles>
+    </projectFiles>
+</psalm>
