@@ -16,3 +16,9 @@ Feature: Retrieve companies not assigned within a corporation
       And I send a "GET" request to "companies/corporate/unassigned?_companyId=1&_includeId=2"
      Then the response status code should be 200
       And the response should be in JSON
+
+  Scenario: Requesting unassigned companies for a non-corporate company fails
+    Given I add Brand Authorization header
+     When I add "Accept" header equal to "application/json"
+      And I send a "GET" request to "companies/corporate/unassigned?_companyId=3"
+     Then the response status code should be 400
