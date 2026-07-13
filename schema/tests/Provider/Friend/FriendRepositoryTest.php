@@ -24,6 +24,8 @@ class FriendRepositoryTest extends KernelTestCase
         $this->it_finds_one_by_name_and_domain();
         $this->it_counts_registrable_devices();
         $this->it_finds_by_company_id_and_inter_company_id();
+        $this->it_finds_names_by_company_id();
+        $this->it_gets_max_priority_for_company();
     }
 
     public function its_instantiable()
@@ -95,6 +97,31 @@ class FriendRepositoryTest extends KernelTestCase
         $this->assertInstanceOf(
             Friend::class,
             $friends[0]
+        );
+    }
+
+    public function it_finds_names_by_company_id()
+    {
+        /** @var FriendRepository $repository */
+        $repository = $this
+            ->em
+            ->getRepository(Friend::class);
+
+        $names = $repository->findNamesByCompanyId(1);
+
+        $this->assertContains('testFriend', $names);
+    }
+
+    public function it_gets_max_priority_for_company()
+    {
+        /** @var FriendRepository $repository */
+        $repository = $this
+            ->em
+            ->getRepository(Friend::class);
+
+        $this->assertSame(
+            2,
+            $repository->getMaxPriorityForCompany(1)
         );
     }
 }
