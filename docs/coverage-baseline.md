@@ -157,6 +157,7 @@ live external backend or are pure generated relation boilerplate:
 * `**/Ivoz/Tests/**` – test-support helpers shipped inside `library/Ivoz`.
 * `**/src/Service/Behat/**` – Behat test contexts that live under each REST
   app's `src` (test support, not production code).
+* `**/src/Tests/**` – REST test-support helpers shipped under each app's `src`.
 * `**/src/Kernel.php` – Symfony micro-kernel bootstrap (framework boilerplate).
 
 Entity `*Abstract` classes are already annotated `@codeCoverageIgnore` in the

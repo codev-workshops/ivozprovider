@@ -43,6 +43,7 @@ $excluded = [
     '/Infrastructure/Mrf/',
     '/Ivoz/Tests/',
     '/src/Service/Behat/',
+    '/src/Tests/',
     '/src/Kernel.php',
 ];
 
