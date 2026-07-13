@@ -19,6 +19,9 @@ class VoicemailRepositoryTest extends KernelTestCase
     public function test_runner()
     {
         $this->it_gets_available_voicemails();
+        $this->it_gets_voicemails_by_user();
+        $this->it_gets_voicemail_ids_by_user();
+        $this->it_gets_generic_voicemail_ids();
     }
 
     public function it_gets_available_voicemails()
@@ -44,5 +47,57 @@ class VoicemailRepositoryTest extends KernelTestCase
             Voicemail::class,
             $voicemails[0]
         );
+    }
+
+    public function it_gets_voicemails_by_user()
+    {
+        /** @var UserRepository $userRepository */
+        $userRepository = $this->em
+            ->getRepository(User::class);
+
+        /** @var VoicemailRepository $voicemailRepository */
+        $voicemailRepository = $this->em
+            ->getRepository(Voicemail::class);
+
+        $voicemails = $voicemailRepository
+            ->getVoicemailsByUser(
+                $userRepository->find(1)
+            );
+
+        $this->assertNotEmpty($voicemails);
+        $this->assertInstanceOf(
+            Voicemail::class,
+            $voicemails[0]
+        );
+    }
+
+    public function it_gets_voicemail_ids_by_user()
+    {
+        /** @var UserRepository $userRepository */
+        $userRepository = $this->em
+            ->getRepository(User::class);
+
+        /** @var VoicemailRepository $voicemailRepository */
+        $voicemailRepository = $this->em
+            ->getRepository(Voicemail::class);
+
+        $ids = $voicemailRepository
+            ->getVoicemailsIdsByUser(
+                $userRepository->find(1)
+            );
+
+        $this->assertNotEmpty($ids);
+        $this->assertContainsOnly('int', $ids);
+    }
+
+    public function it_gets_generic_voicemail_ids()
+    {
+        /** @var VoicemailRepository $voicemailRepository */
+        $voicemailRepository = $this->em
+            ->getRepository(Voicemail::class);
+
+        $ids = $voicemailRepository->getGenericVoicemailIds();
+
+        $this->assertIsArray($ids);
     }
 }
