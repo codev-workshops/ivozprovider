@@ -54,3 +54,15 @@ Feature: Update billable calls
           "ddiProvider": 1
       }
       """
+
+  Scenario: Rating an unknown call reports not found
+    Given I add Authorization header
+     When I add "Content-Type" header equal to "application/json"
+      And I add "Accept" header equal to "application/json"
+      And I send a "PUT" request to "/billable_calls/does-not-exist/rate" with body:
+      """
+      {
+          "ratingPlanName": "RatingPlan Test"
+      }
+      """
+     Then the response status code should be 404
