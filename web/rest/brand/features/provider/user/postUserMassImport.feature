@@ -315,3 +315,26 @@ John,Doe,jon@irontec.com,terminalName2,Z7+KJn8m3k,YealinkT21P_E2,a00000000053,20
           }
       ]
       """
+
+	Scenario: Users mass import reports failed rows
+		Given I add Brand Authorization header
+		When I add "Content-Type" header equal to "multipart/form-data; boundary=------IvozProviderFormBoundaryFUBrG71LG0e8DuZ8"
+		And I add "Accept" header equal to "application/json"
+		And I send a "POST" multipart request to "/users/mass_import" with body:
+        """
+------IvozProviderFormBoundaryFUBrG71LG0e8DuZ8
+Content-Disposition: form-data; name="company"
+
+1
+------IvozProviderFormBoundaryFUBrG71LG0e8DuZ8
+Content-Disposition: form-data; name="csv"; filename="massImport.csv"
+Content-Type: text/csv
+
+Name,Lastname,name@irontec.com,terminalName,Z7+KJn8m3k,YealinkT21P_E2,a00000000052,2002,XX,946002050,NoSuchProvider
+------IvozProviderFormBoundaryFUBrG71LG0e8DuZ8--
+
+    """
+		Then the response status code should be 201
+		And the response should be in JSON
+		And the JSON node "success" should be false
+		And the JSON node "failed" should not be null
