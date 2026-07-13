@@ -9,113 +9,138 @@ Target: **>= 85% line coverage per component and combined.**
 ## How coverage is generated
 
 ```bash
-# One-time environment (see "Environment notes" below)
-tests/docker/bin/prepare-composer-deps        # composer install for every component
-tests/docker/bin/prepare-fixtures             # build sqlite fixtures (schema + rest apps)
-web/rest/platform/bin/generate-keys --test    # JWT test keys
-
 export XDEBUG_MODE=coverage
 
-# library (phpspec)
-library/bin/test-phpspec-with-coverage        # -> library/spec/coverage/coverage.php
+# library (phpspec, whitelist library/Ivoz)
+library/bin/test-phpspec-with-coverage                # -> library/spec/coverage/coverage.php
 
-# schema (PHPUnit, DB integration)
-schema/bin/test-orm-with-coverage             # -> schema/tests/coverage/coverage.php
+# schema (PHPUnit ORM, DB integration, whitelist library/Ivoz)
+schema/bin/test-orm-with-coverage --skip-db           # -> schema/tests/coverage/coverage.php
 
-# rest apis + recordings (PHPUnit)
-web/rest/<c>/vendor/bin/phpunit --coverage-php tests/coverage/coverage.php   # c in brand/client/user/platform
-microservices/recordings: ../../schema/vendor/bin/phpunit --coverage-php tests/coverage/coverage.php
+# rest apis (Behat, whitelist library/Ivoz + <app>/src)
+web/rest/<c>/bin/test-api-with-coverage --skip-db     # -> web/rest/<c>/features/coverage/coverage.php
 
-# combined
-library/bin/combine-coverage                  # -> combined-coverage/ (+ prints % )
+# recordings (PHPUnit, whitelist library/Ivoz)
+microservices/recordings: XDEBUG_MODE=coverage ../../schema/vendor/bin/phpunit --coverage-php tests/coverage/coverage.php
 
-# quick per-report percentage
-library/bin/coverage-percent <label> <coverage.php> [...]
+# combined report (merges every report above)
+library/bin/combine-coverage                          # -> combined-coverage/ (+ prints %)
+
+# quick per-report percentage, optionally restricted to a path
+library/bin/coverage-percent [--filter=<path-substring>] <label> <coverage.php> [...]
 ```
 
-## Baseline (branch `code-cleanup`, initial measurement)
+## Baseline (branch `code-cleanup`)
 
-Two different whitelists are in play, so components are grouped by what they
-measure:
+The REST suites are Behat feature suites that exercise the controllers, data
+access control, DTOs and the shared `library/Ivoz` domain code through real HTTP
+requests against the Symfony kernel. Coverage from those suites therefore counts
+against both the component's own `src` and the shared `library/Ivoz` tree.
 
-### Components whitelisting the shared `library/Ivoz` code base
+### Per-component line coverage of the component's own code
 
-| Component            | Test suite            | Line coverage        |
-|----------------------|-----------------------|----------------------|
-| library              | phpspec               | 21.21% (2581/12170)  |
-| schema               | PHPUnit (ORM)         | 40.65% (4908/12074)  |
-| microservices/recordings | PHPUnit           | 0.00%  (0/11990) [1] |
-| **union of the above** | combine-coverage    | **49.66% (6049/12181)** |
+| Component                | Suite            | Coverage of own code            |
+|--------------------------|------------------|---------------------------------|
+| library (`library/Ivoz`) | phpspec          | 21.21% (2581/12170)             |
+| schema (`library/Ivoz`)  | PHPUnit ORM      | 40.65% (4908/12074)             |
+| web/rest/platform (`src`)| Behat            | 73.65% (218/296)                |
+| web/rest/brand (`src`)   | Behat            | 70.20% (391/557)                |
+| web/rest/client (`src`)  | Behat            | 79.66% (466/585)                |
+| web/rest/user (`src`)    | Behat            | 73.51% (272/370)                |
+| microservices/recordings (`library/Ivoz`) | PHPUnit | 0.00% (0/11990) [1]        |
 
-### REST API components whitelisting their own `src`
+### Shared `library/Ivoz` coverage, union of all suites
 
-| Component            | Test suite            | Line coverage        |
-|----------------------|-----------------------|----------------------|
-| web/rest/platform    | PHPUnit               | n/a — 0 PHPUnit tests present |
-| web/rest/brand       | PHPUnit               | 2.64% (14/531)       |
-| web/rest/client      | PHPUnit               | 2.41% (14/581)       |
-| web/rest/user        | PHPUnit               | 4.65% (16/344)       |
+The library/schema/recordings suites plus all four REST Behat suites, merged and
+restricted to `library/Ivoz`:
 
-### Combined report (`library/bin/combine-coverage`, all reports merged)
+**74.51% (9076/12181 lines)**
 
-**45.39% (6093/13424 lines)**
+### Combined report (`library/bin/combine-coverage`, everything merged)
 
-[1] The recordings PHPUnit suite currently has a failing test and records no
-    lines against the `library/Ivoz` whitelist.
+**75.24% (10452/13891 lines)**
 
-## Tooling / environment issues found while establishing the baseline
+[1] The recordings PHPUnit suite currently has one failing/erroring test and
+    records no lines against the `library/Ivoz` whitelist; see below.
 
-The task premises assumed a working coverage pipeline; several parts were broken
-and had to be repaired to obtain any numbers:
+## Gap to the 85% target
+
+| Scope                    | Baseline | Gap to 85% |
+|--------------------------|----------|------------|
+| library/Ivoz (union)     | 74.51%   | +10.5 pts (~1280 lines) |
+| platform src             | 73.65%   | +11.4 pts  |
+| brand src                | 70.20%   | +14.8 pts  |
+| client src               | 79.66%   | +5.3 pts   |
+| user src                 | 73.51%   | +11.5 pts  |
+| combined                 | 75.24%   | +9.8 pts   |
+
+The remaining gap is closed in Phases 2-4 by adding targeted phpspec specs
+(library domain models/services), expanding schema repository/entity tests, and
+adding REST tests/feature scenarios, plus documenting exclusions for code that
+cannot be meaningfully unit-tested (see below).
+
+## Tooling / environment issues found and repaired
+
+The coverage pipeline was broken in several places and had to be repaired before
+any numbers could be produced:
 
 1. **phpspec coverage extension namespace.** `library/phpspec.yml` referenced
-   `LeanPHP\PhpSpec\CodeCoverage\CodeCoverageExtension`, but the installed
-   dependency (`friends-of-phpspec/phpspec-code-coverage` v6) provides
-   `FriendsOfPhpSpec\PhpSpec\CodeCoverage\CodeCoverageExtension`. Fixed in
-   `library/phpspec.yml`.
+   `LeanPHP\PhpSpec\CodeCoverage\CodeCoverageExtension`; the installed
+   `friends-of-phpspec/phpspec-code-coverage` v6 provides
+   `FriendsOfPhpSpec\PhpSpec\CodeCoverage\CodeCoverageExtension`.
 
-2. **`schema/bin/test-orm-with-coverage` dropped its coverage flags.** It called
-   `test-orm --coverage-html ... --coverage-php ...`, but `test-orm` never
-   forwarded arguments to PHPUnit, so no coverage was ever produced. Rewritten
-   to invoke `vendor/bin/phpunit` with the coverage flags directly.
+2. **`schema/bin/test-orm-with-coverage` never produced coverage.** It passed
+   `--coverage-*` flags to `test-orm`, which does not forward arguments to
+   PHPUnit. Rewritten to call `vendor/bin/phpunit` with the coverage flags and
+   `XDEBUG_MODE=coverage`.
 
-3. **`library/bin/combine-coverage` could not run.** It did `new CodeCoverage()`
-   with no arguments, which fatals on the installed `sebastian/code-coverage`
-   (constructor requires a driver + filter), and it only referenced the three
-   REST *Behat* feature reports (see next point). Rewritten to merge into the
-   first available report, skip missing files, and include every component.
+3. **`library/bin/combine-coverage` could not run.** It constructed
+   `new CodeCoverage()` with no arguments (fatal on the installed
+   `sebastian/code-coverage`, whose constructor requires a driver + filter), and
+   only referenced three non-existent REST feature reports. Rewritten to merge
+   into the first available report, skip missing files, include every component,
+   and print the combined percentage.
 
-4. **REST Behat coverage collection is not available.** `behat.yml.dist` and the
-   `bin/test-api-with-coverage` scripts reference
-   `Ivoz\Api\Behat\Context\CoverageContext`, but that class no longer exists in
-   the installed `irontec/ivoz-api` package, so the Behat `.feature` suites (the
-   suites that exercise the bulk of the REST `src` and library code) currently
-   record no coverage. REST `src` coverage above therefore reflects only the
-   PHPUnit `tests/` suites.
+4. **REST Behat coverage collection was missing.** `behat.yml.dist` and the
+   `bin/test-api-with-coverage` scripts referenced
+   `Ivoz\Api\Behat\Context\CoverageContext`, which was removed from the
+   `irontec/ivoz-api` package, so the Behat suites recorded no coverage and the
+   `test-api-with-coverage` scripts `sed`-edited a non-existent `behat.yml`. A
+   modern `Service\Behat\CoverageContext` (using the current
+   `sebastian/code-coverage` API) was added to each REST app, wired into the
+   default Behat profile, and left inert unless the `COVERAGE` env var is set.
+   The `test-api-with-coverage` scripts were rewritten to run Behat with
+   `COVERAGE=1 XDEBUG_MODE=coverage`.
 
 5. **No `dev:test:coverage:ci` composer scripts exist** in any component's
-   `composer.json` (Phase 5 assumed they were present).
+   `composer.json`; the coverage gate is added fresh in Phase 5.
 
-### Environment reproduction notes (not committed; needed to run the suites)
+### Pre-existing test failures (not caused by these changes)
 
-* PHP **8.2** (not 8.3) — matches the CI Debian Bookworm image; 8.3 changes some
-  signatures.
-* Composer **2.5.x** — composer 2.10 fatals loading `symfony/flex` v1.
-* `ext-redis` **5.3.x** — the sury 6.3 build has typed `Redis::blPop()` etc. that
-  are incompatible with `FakeRedisMasterFactory`'s anonymous subclass.
-* `variables_order = "EGPCS"` in `php.ini` so `$_ENV['DISABLE_FK']` is honoured
-  by the sqlite session-init listener during fixture loading.
-* `XDEBUG_MODE=coverage` must be set for any coverage run.
-* The `core:prepare:database` command must run against a **cold** Symfony cache
-  (`rm -rf schema/var/cache/*`); a warm cache triggers an "Unknown database type"
-  error from the schema tool.
+* `web/rest/platform` – `getInvoiceTemplatePreview.feature` (1 scenario) fails
+  with HTTP 400 (invoice PDF preview requires a rendering backend not available
+  in the test env).
+* `web/rest/brand` – one analogous invoice-template scenario fails for the same
+  reason.
+* `microservices/recordings` – 1 of 2 PHPUnit tests errors (requires the
+  recordings encoder / filesystem backend).
 
-## Planned exclusions
+These do not prevent coverage generation (the Behat `AfterSuite` hook still
+dumps the report).
 
-Large portions of `library/Ivoz` are generated code (entity `*Abstract` /
-`*Trait` / DTO scaffolding) and infrastructure adapters that require external
-services (CGRateS, Asterisk AMI, Redis, filesystem/S3). Where reaching 85% is
-infeasible without hollow tests, these will be documented here and added to the
-relevant phpunit/phpspec coverage exclusion configuration rather than padded
-with meaningless assertions. Concrete exclusions will be listed as the work in
-Phases 2-4 progresses.
+### Environment reproduction notes (host config, not committed)
+
+* PHP **8.2** (CI image), Composer **2.5.x** (2.10 fatals on `symfony/flex` v1),
+  `ext-redis` **5.3.x** (newer typed `Redis::blPop()` breaks the fake Redis),
+  `variables_order = "EGPCS"` (so `$_ENV['DISABLE_FK']` is honoured during
+  fixture loading), `XDEBUG_MODE=coverage`, and a cold Symfony cache before
+  `core:prepare:database` (`rm -rf schema/var/cache/*`).
+
+## Planned / applied exclusions
+
+Large parts of `library/Ivoz` are generated scaffolding (entity
+`*Abstract`/`*Trait`, DTOs) and infrastructure adapters that require external
+services (CGRateS, Asterisk AMI, Redis, S3/filesystem, PDF rendering). Where
+reaching 85% would require hollow tests, those areas are documented here and
+added to the relevant coverage exclusion configuration rather than padded with
+meaningless assertions. Concrete exclusions are listed as Phases 2-4 progress.

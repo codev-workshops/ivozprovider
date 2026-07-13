@@ -2,8 +2,17 @@
 
 set -e
 
+# Collect code coverage while running the Behat API suite.
+# Requires a coverage driver (Xdebug/PCOV) in coverage mode; the
+# Service\Behat\CoverageContext is inert unless COVERAGE is set.
+export APP_ENV=test
+export COVERAGE=1
+export XDEBUG_MODE=coverage
+
 pushd /opt/irontec/ivozprovider/web/rest/platform
-    sed -i 's/\#\(.*CoverageContext.*\)/\1/' ./behat.yml
-    ./bin/test-api
-    sed -i 's/\([[:blank:]].*CoverageContext.*\)/#\1/' ./behat.yml
+    if [ "$1" != "--skip-db" ]; then
+        bin/prepare-test-db
+    fi
+
+    vendor/bin/behat -f progress
 popd

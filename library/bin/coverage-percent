@@ -14,16 +14,47 @@ require __DIR__ . '/../vendor/autoload.php';
 use SebastianBergmann\CodeCoverage\CodeCoverage;
 
 $args = array_slice($argv, 1);
+
+// Optional --filter=<substring>: restrict the percentage to files whose path
+// contains the substring (e.g. "/web/rest/brand/src" for a single component).
+$filter = null;
+$args = array_values(array_filter($args, static function ($arg) use (&$filter) {
+    if (strpos($arg, '--filter=') === 0) {
+        $filter = substr($arg, strlen('--filter='));
+        return false;
+    }
+    return true;
+}));
+
 if (count($args) < 2 || count($args) % 2 !== 0) {
-    fwrite(STDERR, "Usage: coverage-percent <label> <coverage.php> [<label> <coverage.php> ...]\n");
+    fwrite(STDERR, "Usage: coverage-percent [--filter=<path-substring>] <label> <coverage.php> [<label> <coverage.php> ...]\n");
     exit(1);
 }
 
-function pct(CodeCoverage $coverage): array
+function pct(CodeCoverage $coverage, ?string $filter): array
 {
-    $report = $coverage->getReport();
-    $executable = $report->numberOfExecutableLines();
-    $executed = $report->numberOfExecutedLines();
+    if ($filter === null) {
+        $report = $coverage->getReport();
+        $executable = $report->numberOfExecutableLines();
+        $executed = $report->numberOfExecutedLines();
+        $percent = $executable > 0 ? ($executed / $executable) * 100 : 0.0;
+
+        return [$executed, $executable, $percent];
+    }
+
+    $executable = 0;
+    $executed = 0;
+    foreach ($coverage->getData()->lineCoverage() as $path => $lines) {
+        if (strpos($path, $filter) === false) {
+            continue;
+        }
+        foreach ($lines as $tests) {
+            $executable++;
+            if (is_array($tests) && count($tests) > 0) {
+                $executed++;
+            }
+        }
+    }
     $percent = $executable > 0 ? ($executed / $executable) * 100 : 0.0;
 
     return [$executed, $executable, $percent];
@@ -43,7 +74,7 @@ for ($i = 0; $i < count($args); $i += 2) {
     /** @var CodeCoverage $coverage */
     $coverage = require $file;
 
-    [$executed, $executable, $percent] = pct($coverage);
+    [$executed, $executable, $percent] = pct($coverage, $filter);
     printf("%-14s | %6.2f%% (%d/%d lines)\n", $label, $percent, $executed, $executable);
 
     if ($combined === null) {
@@ -54,6 +85,6 @@ for ($i = 0; $i < count($args); $i += 2) {
 }
 
 if ($combined !== null && count($args) > 2) {
-    [$executed, $executable, $percent] = pct($combined);
+    [$executed, $executable, $percent] = pct($combined, $filter);
     printf("%-14s | %6.2f%% (%d/%d lines)\n", 'COMBINED', $percent, $executed, $executable);
 }
