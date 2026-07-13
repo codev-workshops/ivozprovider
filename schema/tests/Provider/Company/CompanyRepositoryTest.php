@@ -30,6 +30,9 @@ class CompanyRepositoryTest extends KernelTestCase
         $this->it_counts_companies();
         $this->it_counts_companies_by_brand();
         $this->it_finds_latest_companies();
+        $this->it_gets_names_by_brand();
+        $this->it_gets_residential_and_retail_ids_by_brand();
+        $this->it_gets_billing_enabled_ids_by_brand();
     }
 
     public function it_finds_one_by_domain()
@@ -217,6 +220,48 @@ class CompanyRepositoryTest extends KernelTestCase
         $this->assertInstanceOf(
             Company::class,
             $clients[0]
+        );
+    }
+
+    public function it_gets_names_by_brand()
+    {
+        /** @var CompanyRepository $repository */
+        $repository = $this
+            ->em
+            ->getRepository(Company::class);
+
+        $names = $repository->getNames(1);
+
+        $this->assertNotEmpty($names);
+        $this->assertContainsOnly('string', $names);
+    }
+
+    public function it_gets_residential_and_retail_ids_by_brand()
+    {
+        /** @var CompanyRepository $repository */
+        $repository = $this
+            ->em
+            ->getRepository(Company::class);
+
+        $this->assertContainsOnly(
+            'int',
+            $repository->getResidentialIdsByBrand(1)
+        );
+        $this->assertContainsOnly(
+            'int',
+            $repository->getRetailIdsByBrand(1)
+        );
+    }
+
+    public function it_gets_billing_enabled_ids_by_brand()
+    {
+        /** @var CompanyRepository $repository */
+        $repository = $this
+            ->em
+            ->getRepository(Company::class);
+
+        $this->assertIsArray(
+            $repository->getBillingEnabledCompanyIdsByBrand(1)
         );
     }
 
