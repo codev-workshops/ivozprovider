@@ -155,6 +155,9 @@ live external backend or are pure generated relation boilerplate:
 * `**/Infrastructure/Rtp/**` – RtpEngine media-proxy adapters.
 * `**/Infrastructure/Mrf/**` – Media Resource Function adapters.
 * `**/Ivoz/Tests/**` – test-support helpers shipped inside `library/Ivoz`.
+* `**/src/Service/Behat/**` – Behat test contexts that live under each REST
+  app's `src` (test support, not production code).
+* `**/src/Kernel.php` – Symfony micro-kernel bootstrap (framework boilerplate).
 
 Entity `*Abstract` classes are already annotated `@codeCoverageIgnore` in the
 generated sources, so they do not count against the requirement.

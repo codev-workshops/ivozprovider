@@ -42,6 +42,8 @@ $excluded = [
     '/Infrastructure/Rtp/',
     '/Infrastructure/Mrf/',
     '/Ivoz/Tests/',
+    '/src/Service/Behat/',
+    '/src/Kernel.php',
 ];
 
 $reports = [

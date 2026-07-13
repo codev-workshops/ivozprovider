@@ -61,7 +61,9 @@ class CoverageContext implements Context
 
         $outputDir = dirname(__DIR__, 3) . '/features/coverage';
         @mkdir($outputDir, 0777, true);
-        (new Facade())->process(self::$coverage, $outputDir);
+        if (getenv('COVERAGE_HTML') !== '0') {
+            (new Facade())->process(self::$coverage, $outputDir);
+        }
         (new PHP())->process(self::$coverage, $outputDir . '/coverage.php');
     }
 
