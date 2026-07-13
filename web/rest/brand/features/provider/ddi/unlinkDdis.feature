@@ -13,3 +13,12 @@ Feature: Unlink DDIs
      Then the response status code should be 200
       And the response should be in JSON
       And the JSON node "status" should be equal to "OK"
+
+  Scenario: Unlinking an unknown DDI fails
+    Given I add Brand Authorization header
+     When I add "Content-Type" header equal to "application/json"
+      And I send a "POST" request to "ddis/unlink" with body:
+      """
+      [999999]
+      """
+     Then the response status code should be 400
