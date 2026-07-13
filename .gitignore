@@ -19,3 +19,8 @@ web/portal/client/.history
 
 doc/html/*
 doc/doctrees/
+
+# agent cleanup pilot artifacts
+/psalm-unused.json
+/unused_candidates.csv
+/unused_candidates.json
