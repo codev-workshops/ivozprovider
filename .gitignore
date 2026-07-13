@@ -9,6 +9,7 @@
 **/__debug**
 vendor
 **/coverage/
+**/combined-coverage/
 storage/*
 mount-storage.sh
 **.phplint-cache

@@ -63,6 +63,10 @@
             "Ivoz\\": "Ivoz"
         }
     },
+    "scripts": {
+        "coverage:combine": "bin/combine-coverage",
+        "coverage:gate": "bin/coverage-gate --threshold=85"
+    },
     "autoload-dev": {
         "psr-4": {
             "spec\\": "spec/"

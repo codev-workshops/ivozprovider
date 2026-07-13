@@ -28,6 +28,7 @@ class CarrierRepositoryTest extends KernelTestCase
         $this->it_finds_ids_by_brand_and_proxyTrunk();
         $this->it_finds_ids_by_proxyTrunk();
         $this->it_counts_carriers_by_brand();
+        $this->it_gets_names_by_brand();
     }
 
     public function it_finds_carrier_ids_with_calculatecost_group_by_brand()
@@ -134,5 +135,18 @@ class CarrierRepositoryTest extends KernelTestCase
             2,
             $count
         );
+    }
+
+    public function it_gets_names_by_brand()
+    {
+        /** @var CarrierRepository $repository */
+        $repository = $this
+            ->em
+            ->getRepository(Carrier::class);
+
+        $names = $repository->getNames(1);
+
+        $this->assertNotEmpty($names);
+        $this->assertContainsOnly('string', $names);
     }
 }

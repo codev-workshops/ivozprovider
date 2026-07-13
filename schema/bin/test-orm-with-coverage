@@ -1,2 +1,22 @@
 #!/bin/bash
-/opt/irontec/ivozprovider/schema/bin/test-orm  --coverage-html tests/coverage --coverage-php tests/coverage/coverage.php
+
+set -e
+
+pushd /opt/irontec/ivozprovider/schema
+
+    if [ "$1" != "--skip-db" ]; then
+        # Prepare dataset
+        bin/prepare-test-db
+    fi
+
+    # Coverage collection requires Xdebug (or PCOV) in coverage mode.
+    export XDEBUG_MODE=coverage
+
+    # Use the project phpunit binary (shared library vendor) rather than
+    # simple-phpunit so a single nikic/php-parser build is loaded; mixing the
+    # phpunit-bridge copy with the shared vendor triggers a class mismatch when
+    # php-code-coverage parses the sources.
+    SYMFONY_PHPUNIT_VERSION=9.5.3 vendor/bin/phpunit \
+        --coverage-php tests/coverage/coverage.php \
+        --coverage-html tests/coverage/html
+popd

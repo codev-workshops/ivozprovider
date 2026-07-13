@@ -17,6 +17,7 @@ class RoutingTagRepositoryTest extends KernelTestCase
     public function test_runner()
     {
         $this->its_instantiable();
+        $this->it_finds_by_company_id();
     }
 
     public function its_instantiable()
@@ -29,6 +30,18 @@ class RoutingTagRepositoryTest extends KernelTestCase
         $this->assertInstanceOf(
             RoutingTagRepository::class,
             $repository
+        );
+    }
+
+    public function it_finds_by_company_id()
+    {
+        /** @var RoutingTagRepository $repository */
+        $repository = $this
+            ->em
+            ->getRepository(RoutingTag::class);
+
+        $this->assertIsArray(
+            $repository->findByCompanyId(3)
         );
     }
 }

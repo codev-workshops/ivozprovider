@@ -9,7 +9,7 @@ default:
         - Behatch\Context\RestContext
         - Behatch\Context\JsonContext
         - Ivoz\Api\Behat\Context\JsonContext
-#        - Ivoz\Api\Behat\Context\CoverageContext: {}
+        - Service\Behat\CoverageContext
   extensions:
     FriendsOfBehat\SymfonyExtension:
       bootstrap: features/bootstrap/bootstrap.php

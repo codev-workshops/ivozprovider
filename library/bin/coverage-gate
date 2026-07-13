@@ -1,0 +1,157 @@
+#!/usr/bin/env php
+<?php
+
+/**
+ * Enforce a minimum line-coverage threshold across the backend components.
+ *
+ * It merges every coverage.php report produced by the component test suites
+ * (phpspec for the library, PHPUnit for schema/recordings, Behat for the REST
+ * APIs) and checks, for each logical component and for the combined figure,
+ * that line coverage is at or above the configured threshold.
+ *
+ * Usage:
+ *   coverage-gate [--threshold=85]
+ *
+ * Exit code is non-zero when any component (or the combined total) is below the
+ * threshold, so it can be used as a CI gate.
+ */
+
+require __DIR__ . '/../vendor/autoload.php';
+
+use SebastianBergmann\CodeCoverage\CodeCoverage;
+
+$root = dirname(__DIR__, 2);
+
+$threshold = 85.0;
+foreach (array_slice($argv, 1) as $arg) {
+    if (strpos($arg, '--threshold=') === 0) {
+        $threshold = (float) substr($arg, strlen('--threshold='));
+    }
+}
+
+/**
+ * Paths that are intentionally excluded from the coverage requirement because
+ * they cannot be meaningfully unit-tested (see docs/coverage-baseline.md).
+ * These are generated relation scaffolding and infrastructure adapters that
+ * require external services (CGRateS, Asterisk, Kamailio, RtpEngine, MRF...).
+ */
+$excluded = [
+    '/Infrastructure/Cgrates/',
+    '/Infrastructure/Ast/',
+    '/Infrastructure/Kam/',
+    '/Infrastructure/Rtp/',
+    '/Infrastructure/Mrf/',
+    '/Ivoz/Tests/',
+    '/src/Service/Behat/',
+    '/src/Tests/',
+    '/src/Kernel.php',
+    '/Controller/Provider/InvoiceTemplatePreviewAction.php',
+];
+
+$reports = [
+    'library'  => $root . '/library/spec/coverage/coverage.php',
+    'schema'   => $root . '/schema/tests/coverage/coverage.php',
+    'rec'      => $root . '/microservices/recordings/tests/coverage/coverage.php',
+    'platform' => $root . '/web/rest/platform/features/coverage/coverage.php',
+    'brand'    => $root . '/web/rest/brand/features/coverage/coverage.php',
+    'client'   => $root . '/web/rest/client/features/coverage/coverage.php',
+    'user'     => $root . '/web/rest/user/features/coverage/coverage.php',
+];
+
+/** @var array<string, CodeCoverage> $loaded */
+$loaded = [];
+foreach ($reports as $key => $file) {
+    if (file_exists($file)) {
+        $loaded[$key] = require $file;
+    }
+}
+
+if (empty($loaded)) {
+    fwrite(STDERR, "No coverage reports were found. Generate coverage first.\n");
+    exit(1);
+}
+
+/**
+ * @param CodeCoverage[] $coverages
+ * @param string|null    $includes path substring a file must contain
+ * @param string[]       $excludes path substrings that disqualify a file
+ * @return array{0:int,1:int,2:float}
+ */
+function measure(array $coverages, ?string $includes, array $excludes): array
+{
+    $executable = 0;
+    $executed = 0;
+    $seen = [];
+
+    foreach ($coverages as $coverage) {
+        foreach ($coverage->getData(true)->lineCoverage() as $path => $lines) {
+            if ($includes !== null && strpos($path, $includes) === false) {
+                continue;
+            }
+            foreach ($excludes as $exclude) {
+                if (strpos($path, $exclude) !== false) {
+                    continue 2;
+                }
+            }
+            foreach ($lines as $line => $tests) {
+                $id = $path . ':' . $line;
+                if (isset($seen[$id])) {
+                    if (is_array($tests) && count($tests) > 0) {
+                        $seen[$id] = true;
+                    }
+                    continue;
+                }
+                $seen[$id] = is_array($tests) && count($tests) > 0;
+            }
+        }
+    }
+
+    foreach ($seen as $covered) {
+        $executable++;
+        if ($covered) {
+            $executed++;
+        }
+    }
+
+    $percent = $executable > 0 ? ($executed / $executable) * 100 : 100.0;
+
+    return [$executed, $executable, $percent];
+}
+
+// component => [reports to merge, include-path-substring]
+$components = [
+    'library/Ivoz' => [array_values($loaded), '/library/Ivoz/'],
+    'platform src' => [[$loaded['platform'] ?? null], '/web/rest/platform/src/'],
+    'brand src'    => [[$loaded['brand'] ?? null], '/web/rest/brand/src/'],
+    'client src'   => [[$loaded['client'] ?? null], '/web/rest/client/src/'],
+    'user src'     => [[$loaded['user'] ?? null], '/web/rest/user/src/'],
+    'combined'     => [array_values($loaded), null],
+];
+
+$failures = [];
+
+printf("Coverage gate (threshold %.2f%%)\n", $threshold);
+printf("%-14s | %8s | %s\n", 'component', 'coverage', 'lines');
+
+foreach ($components as $label => [$coverages, $includes]) {
+    $coverages = array_values(array_filter($coverages));
+    if (empty($coverages)) {
+        printf("%-14s | %8s | (no report)\n", $label, 'n/a');
+        continue;
+    }
+
+    [$executed, $executable, $percent] = measure($coverages, $includes, $excluded);
+    $status = $percent + 1e-9 >= $threshold ? 'OK ' : 'LOW';
+    printf("%-14s | %6.2f%% | %d/%d %s\n", $label, $percent, $executed, $executable, $status);
+
+    if ($percent + 1e-9 < $threshold) {
+        $failures[] = sprintf('%s (%.2f%%)', $label, $percent);
+    }
+}
+
+if (!empty($failures)) {
+    fwrite(STDERR, "\nCoverage below threshold for: " . implode(', ', $failures) . "\n");
+    exit(1);
+}
+
+echo "\nAll components meet the coverage threshold.\n";

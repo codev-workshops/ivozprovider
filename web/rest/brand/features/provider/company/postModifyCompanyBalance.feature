@@ -324,3 +324,13 @@ Feature: Modify company balances
           "codecIds": []
       }
       """
+
+  Scenario: Modifying a company balance with an invalid operation fails
+    Given I add Brand Authorization header
+     When I add "Content-Type" header equal to "application/x-www-form-urlencoded"
+      And I add "Accept" header equal to "application/json"
+     When I send a "POST" request to "/companies/1/modify_balance" with parameters:
+      | key       | value   |
+      | operation | bogus   |
+      | amount    | 10      |
+     Then the response status code should be 400

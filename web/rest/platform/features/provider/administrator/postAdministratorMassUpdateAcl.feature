@@ -43,3 +43,13 @@ Feature: Update administrator Acl
       [1,2,3]
       """
      Then the response status code should be 404
+
+  Scenario: Fail to update Acls of a non restricted administrator
+    Given I add Authorization header
+     When I add "Content-Type" header equal to "application/json"
+      And I add "Accept" header equal to "application/json"
+      And I send a "POST" request to "/administrators/1/grant_all" with body:
+      """
+      [1,2,3]
+      """
+     Then the response status code should be 403
