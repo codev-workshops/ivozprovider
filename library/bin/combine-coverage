@@ -3,6 +3,7 @@
 
 use SebastianBergmann\CodeCoverage\CodeCoverage;
 use SebastianBergmann\CodeCoverage\Report\Html\Facade;
+use SebastianBergmann\CodeCoverage\Report\Clover;
 
 require __DIR__ . '/../vendor/autoload.php';
 
@@ -64,3 +65,18 @@ $htmlReport->process(
     $mainReport,
     __DIR__ . '/../combined-coverage/'
 );
+
+// Portable, review-friendly artefacts committed to the repository. The full
+// HTML tree (combined-coverage/) is large and embeds absolute machine paths, so
+// it stays git-ignored; the Clover XML below has the repository root stripped so
+// its file paths are relative and diff-able.
+$reportDir = $root . '/docs/coverage-report';
+if (!is_dir($reportDir)) {
+    mkdir($reportDir, 0777, true);
+}
+
+$clover = (new Clover())->process($mainReport);
+$clover = str_replace($root . '/', '', $clover);
+file_put_contents($reportDir . '/clover.xml', $clover);
+
+printf("Wrote Clover report to %s\n", $reportDir . '/clover.xml');
