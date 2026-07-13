@@ -143,4 +143,55 @@ Large parts of `library/Ivoz` are generated scaffolding (entity
 services (CGRateS, Asterisk AMI, Redis, S3/filesystem, PDF rendering). Where
 reaching 85% would require hollow tests, those areas are documented here and
 added to the relevant coverage exclusion configuration rather than padded with
-meaningless assertions. Concrete exclusions are listed as Phases 2-4 progress.
+meaningless assertions.
+
+The coverage gate (`library/bin/coverage-gate`) excludes the following paths
+from the requirement because they cannot be meaningfully unit-tested without a
+live external backend or are pure generated relation boilerplate:
+
+* `**/Infrastructure/Cgrates/**` – CGRateS rating/accounting client.
+* `**/Infrastructure/Ast/**` – Asterisk Realtime/AMI adapters.
+* `**/Infrastructure/Kam/**` – Kamailio (SIP proxy) persistence adapters.
+* `**/Infrastructure/Rtp/**` – RtpEngine media-proxy adapters.
+* `**/Infrastructure/Mrf/**` – Media Resource Function adapters.
+* `**/Ivoz/Tests/**` – test-support helpers shipped inside `library/Ivoz`.
+
+Entity `*Abstract` classes are already annotated `@codeCoverageIgnore` in the
+generated sources, so they do not count against the requirement.
+
+## Coverage gate (Phase 5)
+
+`library/bin/coverage-gate [--threshold=85]` merges every generated
+`coverage.php`, applies the exclusions above, and prints per-component and
+combined line coverage, exiting non-zero when anything is below the threshold.
+It is exposed as the `composer coverage:gate` script in `library/composer.json`
+(alongside `composer coverage:combine`). Run coverage generation first, then:
+
+```bash
+XDEBUG_MODE=coverage composer --working-dir=library coverage:gate
+```
+
+Note: the assumed `dev:test:coverage:ci` composer scripts referenced in the
+original task do **not** exist in any component's `composer.json`; the gate is
+therefore added fresh here rather than by extending them.
+
+## Progress against the target
+
+Measured by `coverage-gate` after the Phase 2 library specs, with the
+exclusions above applied:
+
+| Scope         | Baseline | Current | Target |
+|---------------|----------|---------|--------|
+| library/Ivoz  | 74.51%   | 77.06%  | 85%    |
+| platform src  | 73.65%   | 73.65%  | 85%    |
+| brand src     | 70.20%   | 70.20%  | 85%    |
+| client src    | 79.66%   | 79.66%  | 85%    |
+| user src      | 73.51%   | 73.51%  | 85%    |
+| combined      | 75.24%   | 76.72%  | 85%    |
+
+Reaching a hard 85% on the ~12k-line `library/Ivoz` tree requires a large body
+of additional unit/integration tests; each hand-written phpspec spec moves the
+union figure by well under a point because most lines are also exercised by the
+schema and REST suites. The remaining work is tracked as Phases 3 (schema
+DB-integration tests, which exercise many domain models at runtime) and 4 (REST
+tests/feature scenarios, where the small `src` denominators make 85% tractable).
