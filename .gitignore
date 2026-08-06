@@ -19,3 +19,6 @@ web/portal/client/.history
 
 doc/html/*
 doc/doctrees/
+
+# Baseline test artefacts (scripts/legacy-baseline, scripts/call-tests).
+/results/
