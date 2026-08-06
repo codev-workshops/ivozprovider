@@ -160,7 +160,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"name\": \"ZZZ - Test Brand for BBS\",\n  \"domainUsers\": \"brand-bbs.ivozprovider.local\",\n  \"language\": 2,\n  \"currency\": 1,\n  \"defaultTimezone\": 145,\n  \"transformationRuleSet\": 70,\n  \"maxCalls\": 10,\n  \"invoice\": {\n    \"nif\": \"string\",\n    \"postalAddress\": \"string\",\n    \"postalCode\": \"string\",\n    \"town\": \"string\",\n    \"province\": \"string\",\n    \"country\": \"string\",\n    \"registryData\": \"string\"\n  }\n}"
+							"raw": "{\n  \"name\": \"ZZZ - Test Brand for BBS\",\n  \"domainUsers\": \"brand-bbs.ivozprovider.local\",\n  \"language\": 2,\n  \"currency\": 1,\n  \"defaultTimezone\": 145,\n  \"transformationRuleSet\": 70,\n  \"maxCalls\": 10,\n  \"applicationServerSets\": [\n    0\n  ],\n  \"mediaRelaySets\": [\n    0\n  ],\n  \"invoice\": {\n    \"nif\": \"string\",\n    \"postalAddress\": \"string\",\n    \"postalCode\": \"string\",\n    \"town\": \"string\",\n    \"province\": \"string\",\n    \"country\": \"string\",\n    \"registryData\": \"string\"\n  }\n}"
 						},
 						"url": {
 							"raw": "{{platform_api_url}}/brands",
@@ -883,7 +883,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"description\": \"Spanish\",\n  \"internationalCode\": \"00\",\n  \"trunkPrefix\": \"\",\n  \"areaCode\": \"\",\n  \"nationalLen\": 9,\n  \"generateRules\": true,\n  \"name\": {\n     \"en\": \"Spanish Operator\",\n     \"es\": \"Operador Español\",\n     \"ca\": \"Operador Español\",\n     \"it\": \"Spanihs Operator\"\n  },\n  \"brand\": {{brandId}},\n  \"country\": 70\n}"
+							"raw": "{\n  \"description\": \"Spanish\",\n  \"internationalCode\": \"00\",\n  \"trunkPrefix\": \"\",\n  \"areaCode\": \"\",\n  \"nationalLen\": 9,\n  \"generateRules\": true,\n  \"name\": {\n    \"en\": \"Spanish Operator\",\n    \"es\": \"Operador Español\",\n    \"ca\": \"Operador Español\",\n    \"it\": \"Spanihs Operator\",\n    \"eu\": \"Operador Español\"\n  },\n  \"brand\": {{brandId}},\n  \"country\": 70\n}"
 						},
 						"url": {
 							"raw": "{{brand_api_url}}/transformation_rule_sets",
@@ -933,7 +933,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"description\": \"USA (Area 999)\",\n  \"internationalCode\": \"011\",\n  \"trunkPrefix\": \"1\",\n  \"areaCode\": \"999\",\n  \"nationalLen\": 9,\n  \"generateRules\": true,\n  \"name\": {\n     \"en\": \"USA (Area 999)\",\n     \"es\": \"USA (Area 999)\",\n     \"ca\": \"USA (Area 999)\",\n     \"it\": \"USA (Area 999)\"\n  },\n  \"brand\": {{brandId}},\n  \"country\": 235\n}"
+							"raw": "{\n  \"description\": \"USA (Area 999)\",\n  \"internationalCode\": \"011\",\n  \"trunkPrefix\": \"1\",\n  \"areaCode\": \"999\",\n  \"nationalLen\": 9,\n  \"generateRules\": true,\n  \"name\": {\n    \"en\": \"USA (Area 999)\",\n    \"es\": \"USA (Area 999)\",\n    \"ca\": \"USA (Area 999)\",\n    \"it\": \"USA (Area 999)\",\n    \"eu\": \"USA (Area 999)\"\n  },\n  \"brand\": {{brandId}},\n  \"country\": 235\n}"
 						},
 						"url": {
 							"raw": "{{brand_api_url}}/transformation_rule_sets",
@@ -983,7 +983,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"description\": \"BBS DDI Provider\",\n  \"name\": \"BBS DDI Provider\",\n  \"brand\": {{brandId}},\n  \"transformationRuleSet\": 70,\n  \"proxyTrunk\": 1\n}\n"
+							"raw": "{\n  \"description\": \"BBS DDI Provider\",\n  \"name\": \"BBS DDI Provider\",\n  \"brand\": {{brandId}},\n  \"transformationRuleSet\": 70,\n  \"proxyTrunk\": 1\n}"
 						},
 						"url": {
 							"raw": "{{brand_api_url}}/ddi_providers",
@@ -1033,7 +1033,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"ddiProvider\": {{ddiProviderId}},\n  \"ip\": \"151.80.176.3\"\n}\n"
+							"raw": "{\n  \"ddiProvider\": {{ddiProviderId}},\n  \"ip\": \"151.80.176.3\"\n}"
 						},
 						"url": {
 							"raw": "{{brand_api_url}}/ddi_provider_addresses",
@@ -1083,7 +1083,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"ddiProvider\": {{ddiProviderId}},\n  \"ip\": \"151.80.161.20\"\n}\n"
+							"raw": "{\n  \"ddiProvider\": {{ddiProviderId}},\n  \"ip\": \"151.80.161.20\"\n}"
 						},
 						"url": {
 							"raw": "{{brand_api_url}}/ddi_provider_addresses",
@@ -1133,7 +1133,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"description\": \"BBS Carrier\",\n  \"name\": \"BBS Carrier\",\n  \"brand\": {{brandId}},\n  \"transformationRuleSet\": 70,\n  \"proxyTrunk\": 1\n}\n"
+							"raw": "{\n  \"description\": \"BBS Carrier\",\n  \"name\": \"BBS Carrier\",\n  \"brand\": {{brandId}},\n  \"transformationRuleSet\": 70,\n  \"proxyTrunk\": 1\n}"
 						},
 						"url": {
 							"raw": "{{brand_api_url}}/carriers",
@@ -1183,7 +1183,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"sipProxy\": \"127.0.0.1\",\t\n  \"carrier\": {{carrierId}},\n  \"brand\": {{brandId}}\n}"
+							"raw": "{\n  \"sipProxy\": \"127.0.0.1\",\n  \"carrier\": {{carrierId}},\n  \"brand\": {{brandId}}\n}"
 						},
 						"url": {
 							"raw": "{{brand_api_url}}/carrier_servers",
@@ -1233,7 +1233,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"prefix\": \"+34\",\n  \"name\": {\n  \t\"en\": \"Spain\",  \t\n  \t\"es\": \"España\",\n    \"ca\": \"España\",\n    \"it\": \"Spain\"\n  },\n  \"description\": {\n  \t\"en\": \"BBS - Spain\",  \t\n  \t\"es\": \"BBS - España\",\n  \t\"ca\": \"BBS - España\",  \t\n  \t\"it\": \"BBS - Spain\"\n  },\n  \"brand\": {{brandId}}\n}"
+							"raw": "{\n  \"prefix\": \"+34\",\n  \"name\": {\n    \"en\": \"Spain\",\n    \"es\": \"España\",\n    \"ca\": \"España\",\n    \"it\": \"Spain\",\n    \"eu\": \"España\"\n  },\n  \"description\": {\n    \"en\": \"BBS - Spain\",\n    \"es\": \"BBS - España\",\n    \"ca\": \"BBS - España\",\n    \"it\": \"BBS - Spain\",\n    \"eu\": \"BBS - España\"\n  },\n  \"brand\": {{brandId}}\n}"
 						},
 						"url": {
 							"raw": "{{brand_api_url}}/routing_patterns",
@@ -1333,7 +1333,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"prefix\": \"+1\",\n  \"name\": {\n  \t\"en\": \"USA\",  \t\n  \t\"es\": \"Estados Unidos\",\n    \"ca\": \"Estados Unidos\",\n    \"it\": \"USA\"\n  },\n  \"description\": {\n  \t\"en\": \"BBS - Usa\",  \t\n  \t\"es\": \"BBS - Estados Unidos\",\n  \t\"it\": \"BBS - Usa\",  \t\n  \t\"ca\": \"BBS - Estados Unidos\"      \n  },\n  \"brand\": {{brandId}}\n}"
+							"raw": "{\n  \"prefix\": \"+1\",\n  \"name\": {\n    \"en\": \"USA\",\n    \"es\": \"Estados Unidos\",\n    \"ca\": \"Estados Unidos\",\n    \"it\": \"USA\",\n    \"eu\": \"Estados Unidos\"\n  },\n  \"description\": {\n    \"en\": \"BBS - Usa\",\n    \"es\": \"BBS - Estados Unidos\",\n    \"it\": \"BBS - Usa\",\n    \"ca\": \"BBS - Estados Unidos\",\n    \"eu\": \"BBS - Estados Unidos\"\n  },\n  \"brand\": {{brandId}}\n}"
 						},
 						"url": {
 							"raw": "{{brand_api_url}}/routing_patterns",
@@ -1433,7 +1433,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"name\": {\n  \t\"en\": \"Spain\",\n  \t\"es\": \"España\"\n  },\n  \"prefix\": \"+34\",\n  \"brand\": {{brandId}}\n}"
+							"raw": "{\n  \"name\": {\n    \"en\": \"Spain\",\n    \"es\": \"España\"\n  },\n  \"prefix\": \"+34\",\n  \"brand\": {{brandId}}\n}"
 						},
 						"url": {
 							"raw": "{{brand_api_url}}/destinations",
@@ -1483,7 +1483,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"name\": {\n  \t\"en\": \"USA\",\n  \t\"es\": \"Estados Unidos\"\n  },\n  \"prefix\": \"+1\",\n  \"brand\": {{brandId}}\n}"
+							"raw": "{\n  \"name\": {\n    \"en\": \"USA\",\n    \"es\": \"Estados Unidos\"\n  },\n  \"prefix\": \"+1\",\n  \"brand\": {{brandId}}\n}"
 						},
 						"url": {
 							"raw": "{{brand_api_url}}/destinations",
@@ -1533,7 +1533,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"name\": {\n  \t\"en\": \"Standard\",\n  \t\"es\": \"Estándar\",\n  \t\"it\": \"Standard\",\n  \t\"ca\": \"Estándar\"\n  },\n  \"description\": {\n  \t\"en\": \"Standard\",\n  \t\"es\": \"Estándar\",\n  \t\"it\": \"Standard\",\n  \t\"ca\": \"Estándar\"      \n  },\n  \"brand\": {{brandId}}\n}"
+							"raw": "{\n  \"name\": {\n    \"en\": \"Standard\",\n    \"es\": \"Estándar\",\n    \"it\": \"Standard\",\n    \"ca\": \"Estándar\",\n    \"eu\": \"Estándar\"\n  },\n  \"description\": {\n    \"en\": \"Standard\",\n    \"es\": \"Estándar\",\n    \"it\": \"Standard\",\n    \"ca\": \"Estándar\",\n    \"eu\": \"Estándar\"\n  },\n  \"brand\": {{brandId}}\n}"
 						},
 						"url": {
 							"raw": "{{brand_api_url}}/destination_rate_groups",
@@ -1679,7 +1679,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"name\": {\n  \t\"en\": \"Standard 2017\",\n  \t\"es\": \"Estándar 2017\",\n  \t\"it\": \"Standard 2017\",\n  \t\"ca\": \"Estándar 2017\"      \n  },\n  \"description\": {\n  \t\"en\": \"\",\n  \t\"es\": \"\",\n  \t\"ca\": \"\",\n  \t\"it\": \"\"      \n  },\n  \"brand\": {{brandId}}\n}"
+							"raw": "{\n  \"name\": {\n    \"en\": \"Standard 2017\",\n    \"es\": \"Estándar 2017\",\n    \"it\": \"Standard 2017\",\n    \"ca\": \"Estándar 2017\",\n    \"eu\": \"Estándar 2017\"\n  },\n  \"description\": {\n    \"en\": \"\",\n    \"es\": \"\",\n    \"ca\": \"\",\n    \"it\": \"\",\n    \"eu\": \"\"\n  },\n  \"brand\": {{brandId}}\n}"
 						},
 						"url": {
 							"raw": "{{brand_api_url}}/rating_plan_groups",
@@ -1778,7 +1778,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"name\": \"BBS Corporation\",\n  \"brand\": {{brandId}}\n}\n"
+							"raw": "{\n  \"name\": \"BBS Corporation\",\n  \"brand\": {{brandId}}\n}"
 						},
 						"url": {
 							"raw": "{{brand_api_url}}/corporations",
@@ -1833,7 +1833,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"type\": \"vpbx\",\n  \"name\": \"BBS - Company for Black Box SIP tests\",\n  \"domainUsers\": \"bbs.ivozprovider.local\",\n  \"nif\": \"09876543210ART\",\n  \"externalMaxCalls\": 2,\n  \"postalAddress\": \"Company address\",\n  \"postalCode\": \"48902\",\n  \"town\": \"Company town\",\n  \"province\": \"Company province\",\n  \"onDemandRecord\": 2,\n  \"onDemandRecordCode\": \"234\",\n  \"countryName\": \"Company country\",\n  \"ipfilter\": false,\n  \"defaultTimezone\": 1,\n  \"transformationRuleSet\": 70,\n  \"maxCalls\": 10,\n  \"brand\": {{brandId}},\n  \"corporation\": {{corporationId}},\n  \"country\": 70,\n  \"currency\": 1\n}"
+							"raw": "{\n  \"type\": \"vpbx\",\n  \"name\": \"BBS - Company for Black Box SIP tests\",\n  \"domainUsers\": \"bbs.ivozprovider.local\",\n  \"nif\": \"09876543210ART\",\n  \"externalMaxCalls\": 2,\n  \"postalAddress\": \"Company address\",\n  \"postalCode\": \"48902\",\n  \"town\": \"Company town\",\n  \"province\": \"Company province\",\n  \"onDemandRecord\": 2,\n  \"onDemandRecordCode\": \"234\",\n  \"countryName\": \"Company country\",\n  \"ipfilter\": false,\n  \"defaultTimezone\": 1,\n  \"transformationRuleSet\": 70,\n  \"maxCalls\": 10,\n  \"brand\": {{brandId}},\n  \"applicationServerSet\": 0,\n  \"mediaRelaySet\": 0,\n  \"corporation\": {{corporationId}},\n  \"country\": 70,\n  \"currency\": 1\n}"
 						},
 						"url": {
 							"raw": "{{brand_api_url}}/companies",
@@ -2690,7 +2690,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"name\": \"Bob\",\n  \"lastname\": \"Bobson\",\n  \"email\": \"bob@bbs.ivozprovider.local\",\n  \"pass\": \"b0bp4ssw0rd\",\n  \"company\": {{companyId}},\n  \"terminal\": {{bobTerminalId}},\n  \"transformationRuleSet\": 70,  \n  \"timezone\": 70\n}"
+							"raw": "{\n  \"name\": \"Bob\",\n  \"lastname\": \"Bobson\",\n  \"email\": \"bob@bbs.ivozprovider.local\",\n  \"pass\": \"b0bp4ssw0rd\",\n  \"company\": {{companyId}},\n  \"terminal\": {{bobTerminalId}},\n  \"transformationRuleSet\": 70,\n  \"timezone\": 70\n}"
 						},
 						"url": {
 							"raw": "{{client_api_url}}/users",
@@ -2943,7 +2943,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"name\": \"Charlie\",\n  \"lastname\": \"Charlieson\",\n  \"email\": \"charlie@bbs.ivozprovider.local\",\n  \"pass\": \"ch4rl1ep4ssw0rd\",\n  \"company\": {{companyId}},\n  \"terminal\": {{charlieTerminalId}},\n  \"transformationRuleSet\": 70,  \n  \"timezone\": 70\n}"
+							"raw": "{\n  \"name\": \"Charlie\",\n  \"lastname\": \"Charlieson\",\n  \"email\": \"charlie@bbs.ivozprovider.local\",\n  \"pass\": \"ch4rl1ep4ssw0rd\",\n  \"company\": {{companyId}},\n  \"terminal\": {{charlieTerminalId}},\n  \"transformationRuleSet\": 70,\n  \"timezone\": 70\n}"
 						},
 						"url": {
 							"raw": "{{client_api_url}}/users",
@@ -3255,7 +3255,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "\n{\n  \"number\": \"1004\",\n  \"routeType\": \"user\",\n  \"company\": {{companyId}},\n  \"user\": {{daveUserId}}\n}"
+							"raw": "{\n  \"number\": \"1004\",\n  \"routeType\": \"user\",\n  \"company\": {{companyId}},\n  \"user\": {{daveUserId}}\n}"
 						},
 						"url": {
 							"raw": "{{client_api_url}}/extensions",
@@ -3305,7 +3305,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "\n{\n  \"ddi\": \"999661004\",\n  \"routeType\": \"user\",\n  \"company\": {{companyId}},\n  \"brand\": {{brandId}},\n  \"user\": {{daveUserId}},\n  \"ddiProvider\": {{ddiProviderId}},\n  \"country\": 235\n}"
+							"raw": "{\n  \"ddi\": \"999661004\",\n  \"routeType\": \"user\",\n  \"company\": {{companyId}},\n  \"brand\": {{brandId}},\n  \"user\": {{daveUserId}},\n  \"ddiProvider\": {{ddiProviderId}},\n  \"country\": 235\n}"
 						},
 						"url": {
 							"raw": "{{brand_api_url}}/ddis",
@@ -3974,7 +3974,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "\n{\n  \"ddi\": \"999661006\",\n  \"routeType\": \"user\",\n  \"company\": {{companyId}},\n  \"brand\": {{brandId}},\n  \"user\": {{frankUserId}},\n  \"ddiProvider\": {{ddiProviderId}},\n  \"country\": 70\n}"
+							"raw": "{\n  \"ddi\": \"999661006\",\n  \"routeType\": \"user\",\n  \"company\": {{companyId}},\n  \"brand\": {{brandId}},\n  \"user\": {{frankUserId}},\n  \"ddiProvider\": {{ddiProviderId}},\n  \"country\": 70\n}"
 						},
 						"url": {
 							"raw": "{{brand_api_url}}/ddis",
@@ -4056,6 +4056,15 @@
 								"exec": [
 									"var companyData = JSON.parse(postman.getGlobalVariable(\"companyData\"));",
 									"",
+									"// The GET that filled companyData embeds related entities as objects, but the",
+									"// PUT body wants their ids.",
+									"Object.keys(companyData).forEach(function (key) {",
+									"    var value = companyData[key];",
+									"    if (value && typeof value === \"object\" && value.id !== undefined) {",
+									"        companyData[key] = value.id;",
+									"    }",
+									"});",
+									"",
 									"companyData.outgoingDdi = parseInt(postman.getGlobalVariable(\"aliceDDIId\"));",
 									"",
 									"postman.setGlobalVariable(\"companyData\", JSON.stringify(companyData));",
@@ -4134,7 +4143,7 @@
 						"header": [
 							{
 								"key": "Authorization",
-								"value": "{{client_api_auth}}"
+								"value": "{{brand_api_auth}}"
 							},
 							{
 								"key": "Content-Type",
@@ -4146,9 +4155,9 @@
 							"raw": "{\n  \"name\": \"friend\",\n  \"description\": \"BBS - Friend\",\n  \"transport\": \"udp\",\n  \"password\": \"fr13ndp4SSW0rd+\",\n  \"priority\": 1,\n  \"directConnectivity\": \"no\",\n  \"company\": {{companyId}}\n}"
 						},
 						"url": {
-							"raw": "{{client_api_url}}/friends",
+							"raw": "{{brand_api_url}}/friends",
 							"host": [
-								"{{client_api_url}}"
+								"{{brand_api_url}}"
 							],
 							"path": [
 								"friends"
@@ -4707,7 +4716,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "\n{\n  \"number\": \"500\",\n  \"routeType\": \"conferenceRoom\",\n  \"company\": {{companyId}},\n  \"conferenceRoom\": {{conferenceRoomId}}\n}"
+							"raw": "{\n  \"number\": \"500\",\n  \"routeType\": \"conferenceRoom\",\n  \"company\": {{companyId}},\n  \"conferenceRoom\": {{conferenceRoomId}}\n}"
 						},
 						"url": {
 							"raw": "{{client_api_url}}/extensions",
@@ -6445,7 +6454,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"type\": \"residential\",\n  \"name\": \"BBS - Residential for Black Box SIP tests\",\n  \"nif\": \"09876543210ART\",\n  \"externalMaxCalls\": 2,\n  \"postalAddress\": \"Residential address\",\n  \"postalCode\": \"48902\",\n  \"town\": \"Residential town\",\n  \"province\": \"Residential province\",\n  \"countryName\": \"Residential country\",\n  \"defaultTimezone\": 1,\n  \"onDemandRecord\": 2,\n  \"onDemandRecordCode\": \"234\",\n  \"ipfilter\": false,\n  \"transformationRuleSet\": 70,\n  \"maxCalls\": 10,\n  \"brand\": {{brandId}},\n  \"country\": 70\n}"
+							"raw": "{\n  \"type\": \"residential\",\n  \"name\": \"BBS - Residential for Black Box SIP tests\",\n  \"nif\": \"09876543210ART\",\n  \"externalMaxCalls\": 2,\n  \"postalAddress\": \"Residential address\",\n  \"postalCode\": \"48902\",\n  \"town\": \"Residential town\",\n  \"province\": \"Residential province\",\n  \"countryName\": \"Residential country\",\n  \"defaultTimezone\": 1,\n  \"onDemandRecord\": 2,\n  \"onDemandRecordCode\": \"234\",\n  \"ipfilter\": false,\n  \"transformationRuleSet\": 70,\n  \"maxCalls\": 10,\n  \"brand\": {{brandId}},\n  \"applicationServerSet\": 0,\n  \"mediaRelaySet\": 0,\n  \"country\": 70\n}"
 						},
 						"url": {
 							"raw": "{{brand_api_url}}/companies",
@@ -6703,7 +6712,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "\n{\n  \"company\": {{residentialId}},\n  \"feature\": 2\n}"
+							"raw": "{\n  \"company\": {{residentialId}},\n  \"feature\": 2\n}"
 						},
 						"url": {
 							"raw": "{{brand_api_url}}/features_rel_companies",
@@ -6984,6 +6993,15 @@
 								"exec": [
 									"var residentialData = JSON.parse(postman.getGlobalVariable(\"residentialData\"));",
 									"",
+									"// The GET that filled residentialData embeds related entities as objects, but the",
+									"// PUT body wants their ids.",
+									"Object.keys(residentialData).forEach(function (key) {",
+									"    var value = residentialData[key];",
+									"    if (value && typeof value === \"object\" && value.id !== undefined) {",
+									"        residentialData[key] = value.id;",
+									"    }",
+									"});",
+									"",
 									"residentialData.outgoingDdi = postman.getGlobalVariable(\"residentialDDIId\");",
 									"",
 									"postman.setGlobalVariable(\"residentialData\", JSON.stringify(residentialData));",
@@ -7075,7 +7093,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"type\": \"retail\",\n  \"name\": \"BBS - Retail for Black Box SIP tests\",\n  \"nif\": \"09876543210ART\",\n  \"externalMaxCalls\": 2,\n  \"postalAddress\": \"Retail address\",\n  \"postalCode\": \"48902\",\n  \"town\": \"Retail town\",\n  \"province\": \"Retail province\",\n  \"countryName\": \"Retail country\",\n  \"defaultTimezone\": 1,\n  \"ipfilter\": false,\n  \"transformationRuleSet\": 70,\n  \"maxCalls\": 10,  \n  \"brand\": {{brandId}},\n  \"country\": 70\n}"
+							"raw": "{\n  \"type\": \"retail\",\n  \"name\": \"BBS - Retail for Black Box SIP tests\",\n  \"nif\": \"09876543210ART\",\n  \"externalMaxCalls\": 2,\n  \"postalAddress\": \"Retail address\",\n  \"postalCode\": \"48902\",\n  \"town\": \"Retail town\",\n  \"province\": \"Retail province\",\n  \"countryName\": \"Retail country\",\n  \"defaultTimezone\": 1,\n  \"ipfilter\": false,\n  \"transformationRuleSet\": 70,\n  \"maxCalls\": 10,\n  \"brand\": {{brandId}},\n  \"applicationServerSet\": 0,\n  \"mediaRelaySet\": 0,\n  \"country\": 70\n}"
 						},
 						"url": {
 							"raw": "{{brand_api_url}}/companies",
@@ -7466,6 +7484,15 @@
 							"script": {
 								"exec": [
 									"var retailData = JSON.parse(postman.getGlobalVariable(\"retailData\"));",
+									"",
+									"// The GET that filled retailData embeds related entities as objects, but the",
+									"// PUT body wants their ids.",
+									"Object.keys(retailData).forEach(function (key) {",
+									"    var value = retailData[key];",
+									"    if (value && typeof value === \"object\" && value.id !== undefined) {",
+									"        retailData[key] = value.id;",
+									"    }",
+									"});",
 									"",
 									"retailData.outgoingDdi = postman.getGlobalVariable(\"retailDDIId\");",
 									"",

@@ -10,8 +10,11 @@ MEDIA_RELAY_MAXPORT="${MEDIA_RELAY_MAXPORT:-13500}"
 
 CONF=/etc/rtpengine/rtpengine.conf
 
-# recording-dir lives on the shared storage volume (NFS on a real deployment).
-mkdir -p "$(sed -nr 's#^ *recording-dir *= *##p' "$CONF")"
+# The storage tree is shared with the backend and asterisk containers, which run
+# as different uids (NFS with no_root_squash on a real deployment). This mirrors
+# `mkdir -m 777 -p .../storage` in tests/docker/bin/prepare-fixtures.
+install -d -m 0777 /opt/irontec/ivozprovider/storage
+install -d -m 0777 "$(sed -nr 's#^ *recording-dir *= *##p' "$CONF")"
 
 sed -i -r "s#(interface *= *).*#\1${MEDIA_RELAY_ADDRESS}#" "$CONF"
 sed -i -r "s#(listen-ng *= *).*#\1${MEDIA_RELAY_CONTROL}:2223#" "$CONF"

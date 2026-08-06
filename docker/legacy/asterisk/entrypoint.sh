@@ -34,7 +34,10 @@ if [ -f "$BUNDLE_ENV" ]; then
     sed -i -r "s#(DATABASE_URL=mysql://[^:]+:)[^@]*(@)[^:/]+#\1${MYSQL_PASSWORD}\2${MYSQL_HOST}#" "$BUNDLE_ENV"
 fi
 
-mkdir -p /opt/irontec/ivozprovider/storage
+# The storage tree is shared with the backend and asterisk containers, which run
+# as different uids (NFS with no_root_squash on a real deployment). This mirrors
+# `mkdir -m 777 -p .../storage` in tests/docker/bin/prepare-fixtures.
+install -d -m 0777 /opt/irontec/ivozprovider/storage
 
 /usr/local/bin/wait-for-tcp "${MYSQL_HOST}" 3306
 

@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+#
+# Load the fixtures the call tests assume into a running baseline stack.
+#
+# schema/initial.sql and the Doctrine migrations are applied by the containers
+# themselves (docker/mariadb/Dockerfile and docker/backend/start.sh). What they
+# leave behind is an empty platform: no brands, no companies, no users. The
+# telephony fixtures - the tests/bbs/environment.yaml users, the residential and
+# retail brands, DDIs, IVRs, queues, hunt groups, conferences and call forward
+# settings - live in tests/bbs/dataset.json, a Postman collection that creates
+# them all through the REST API. This runs it.
+set -euo pipefail
+
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+# shellcheck source=scripts/lib/baseline.sh
+source "${ROOT}/scripts/lib/baseline.sh"
+
+RESULTS_DIR=${RESULTS_DIR:-${ROOT}/results/seed}
+mkdir -p "${RESULTS_DIR}"
+
+echo "Seeding tests/bbs/dataset.json through ${BASELINE_API_BASE}..."
+
+set +e
+baseline_newman run tests/bbs/dataset.json \
+    --env-var "platform_api_url=${BASELINE_API_BASE}/platform" \
+    --env-var "brand_api_url=${BASELINE_API_BASE}/brand" \
+    --env-var "client_api_url=${BASELINE_API_BASE}/client" \
+    --env-var "api_username=${BASELINE_API_USERNAME}" \
+    --env-var "api_password=${BASELINE_API_PASSWORD}" \
+    --reporters cli,junit \
+    --reporter-junit-export "results/seed/dataset.xml" \
+    --timeout-request 30000
+status=$?
+set -e
+
+echo
+echo "Seeded objects:"
+baseline_mysql "
+    SELECT 'Brands', COUNT(*) FROM Brands
+    UNION ALL SELECT 'Companies', COUNT(*) FROM Companies
+    UNION ALL SELECT 'Users', COUNT(*) FROM Users
+    UNION ALL SELECT 'Terminals', COUNT(*) FROM Terminals
+    UNION ALL SELECT 'DDIs', COUNT(*) FROM DDIs
+    UNION ALL SELECT 'IVRs', COUNT(*) FROM IVRs
+    UNION ALL SELECT 'Queues', COUNT(*) FROM Queues
+    UNION ALL SELECT 'HuntGroups', COUNT(*) FROM HuntGroups
+    UNION ALL SELECT 'ConferenceRooms', COUNT(*) FROM ConferenceRooms
+    UNION ALL SELECT 'ResidentialDevices', COUNT(*) FROM ResidentialDevices
+    UNION ALL SELECT 'RetailAccounts', COUNT(*) FROM RetailAccounts
+"
+
+echo
+echo "JUnit report: ${RESULTS_DIR}/dataset.xml"
+exit "${status}"
