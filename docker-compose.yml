@@ -172,6 +172,201 @@ services:
       network:
         ipv4_address: 10.189.4.33
 
+  # Local ivozprovider.local zone, equivalent to the BIND zone a real data node
+  # serves (profiles/data/etc/bind/db.ivozprovider.local). Used by the SIP
+  # clients to resolve the company/brand SIP domains onto kamailio-users.
+  resolver:
+    hostname: ivozprovider-resolver
+    container_name: ivozprovider-resolver
+    image: ivozprovider-resolver:local
+    build:
+      context: .
+      dockerfile: docker/resolver/Dockerfile
+    networks:
+      network:
+        ipv4_address: 10.189.4.53
+    healthcheck:
+      test: ["CMD-SHELL", "dig +short @127.0.0.1 users.ivozprovider.local | grep -q 10.189.4.40"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kamailio-users:
+    hostname: ivozprovider-kamailio-users
+    container_name: ivozprovider-kamailio-users
+    image: ivozprovider-kamailio:local
+    build:
+      context: .
+      dockerfile: docker/kamailio/Dockerfile
+    command: ["users"]
+    # kamailio resolves its listen sockets and its dmq peers through DNS, not
+    # /etc/hosts, so the proxies use the ivozprovider.local resolver.
+    dns:
+      - 10.189.4.53
+    depends_on:
+      resolver:
+        condition: service_healthy
+      data:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    links:
+      - data:data.ivozprovider.local
+      - redis:cache.ivozprovider.local
+    extra_hosts:
+      # Peers cannot be expressed as links (kamailio-users <-> kamailio-trunks
+      # would be a dependency cycle), so the .local zone entries the proxies
+      # need are static instead. The short names are what a real node resolves
+      # through the ivozprovider.local search domain, and what
+      # profiles/proxy/etc/kamailio/autoconf writes as the listen address of
+      # the first proxy row.
+      users.ivozprovider.local: 10.189.4.40
+      trunks.ivozprovider.local: 10.189.4.41
+      as.ivozprovider.local: 10.189.4.42
+      media.ivozprovider.local: 10.189.4.43
+      users: 10.189.4.40
+      trunks: 10.189.4.41
+    ports:
+      - "5060:5060/udp"
+      - "5060:5060/tcp"
+      - "5061:5061/tcp"
+      - "10080:10080/tcp"
+      - "10081:10081/tcp"
+    networks:
+      network:
+        ipv4_address: 10.189.4.40
+    healthcheck:
+      # binrpc over the ctl socket (modparam("ctl", "binrpc", ...)); the RPC
+      # port is json-rpc over http and would not answer kamcmd.
+      test: ["CMD-SHELL", "kamcmd -s unix:/run/kamailio/kamailio_proxyusers_ctl core.uptime > /dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  kamailio-trunks:
+    hostname: ivozprovider-kamailio-trunks
+    container_name: ivozprovider-kamailio-trunks
+    image: ivozprovider-kamailio:local
+    build:
+      context: .
+      dockerfile: docker/kamailio/Dockerfile
+    command: ["trunks"]
+    dns:
+      - 10.189.4.53
+    depends_on:
+      resolver:
+        condition: service_healthy
+      data:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    links:
+      - data:data.ivozprovider.local
+      - redis:cache.ivozprovider.local
+    extra_hosts:
+      users.ivozprovider.local: 10.189.4.40
+      trunks.ivozprovider.local: 10.189.4.41
+      as.ivozprovider.local: 10.189.4.42
+      media.ivozprovider.local: 10.189.4.43
+      users: 10.189.4.40
+      trunks: 10.189.4.41
+    ports:
+      - "6060:5060/udp"
+      - "6060:5060/tcp"
+      - "6061:5061/tcp"
+    networks:
+      network:
+        ipv4_address: 10.189.4.41
+    healthcheck:
+      test: ["CMD-SHELL", "kamcmd -s unix:/run/kamailio/kamailio_proxytrunks_ctl core.uptime > /dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  asterisk:
+    hostname: ivozprovider-asterisk
+    container_name: ivozprovider-asterisk
+    image: ivozprovider-asterisk:local
+    build:
+      context: .
+      dockerfile: docker/asterisk/Dockerfile
+    # Endpoint contacts point at the SIP domain of the company/brand
+    # (sip:bob@bbs.ivozprovider.local), so asterisk needs the same view of the
+    # zone as the proxies.
+    dns:
+      - 10.189.4.53
+    depends_on:
+      resolver:
+        condition: service_healthy
+      data:
+        condition: service_healthy
+    links:
+      - data:data.ivozprovider.local
+      - redis:cache.ivozprovider.local
+    extra_hosts:
+      users.ivozprovider.local: 10.189.4.40
+      trunks.ivozprovider.local: 10.189.4.41
+      as.ivozprovider.local: 10.189.4.42
+      media.ivozprovider.local: 10.189.4.43
+    networks:
+      network:
+        ipv4_address: 10.189.4.42
+    healthcheck:
+      test: ["CMD-SHELL", "asterisk -rx 'core show uptime' > /dev/null || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  rtpengine:
+    hostname: ivozprovider-rtpengine
+    container_name: ivozprovider-rtpengine
+    image: ivozprovider-rtpengine:local
+    build:
+      context: .
+      dockerfile: docker/rtpengine/Dockerfile
+    environment:
+      # See docker/rtpengine/entrypoint.sh for the provenance of the range
+      MEDIA_RELAY_MINPORT: 13000
+      MEDIA_RELAY_MAXPORT: 13200
+    extra_hosts:
+      users.ivozprovider.local: 10.189.4.40
+      trunks.ivozprovider.local: 10.189.4.41
+    networks:
+      network:
+        ipv4_address: 10.189.4.43
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep rtpengine > /dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # SIP scenario runner (tests/bbs). Not started with the stack: it is a
+  # one-shot container invoked by scripts/call-tests.
+  bbs-runner:
+    container_name: ivozprovider-bbs-runner
+    image: ivozprovider-bbs:local
+    build:
+      context: tests/bbs
+      dockerfile: Dockerfile
+    profiles:
+      - tests
+    user: "0:0"
+    working_dir: /opt/irontec/ivozprovider
+    environment:
+      NAMESERVER: 10.189.4.53
+    volumes:
+      - .:/opt/irontec/ivozprovider
+    dns:
+      - 10.189.4.53
+    command: ["/bin/bash", "tests/bbs/entrypoint.sh"]
+    networks:
+      network:
+        ipv4_address: 10.189.4.60
+
 networks:
   network:
     driver: bridge

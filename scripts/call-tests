@@ -1,0 +1,58 @@
+#!/bin/bash
+#
+# Run the tests/bbs SIP scenarios against the running stack and report a
+# pass/fail count per scenario.
+#
+#   ./scripts/call-tests            run every tests/bbs/*test-*.yaml scenario
+#   RUN_TAG=before ./scripts/call-tests   tag the run artifacts
+#
+# Artifacts land in var/baseline/<run tag>/:
+#   results/results_<scenario>.xml   raw per-scenario JUnit from bbs
+#   bbs-results.xml                  merged JUnit summary
+#   cdrs.csv                         normalised CDR dump of the run
+
+set -e
+
+# shellcheck source=scripts/lib/baseline.sh
+source "$(dirname "$(realpath "$0")")/lib/baseline.sh"
+
+RUN_TAG="${RUN_TAG:-$(date -u +%Y%m%dT%H%M%SZ)}"
+RUN_DIR="$BASELINE_DIR/$RUN_TAG"
+RESULTS_DIR="$RUN_DIR/results"
+
+mkdir -p "$RESULTS_DIR"
+rm -f "$ROOT"/results_*.xml
+
+# Both CDR tables keep every call ever placed, so a run has to remember where
+# it started to export only its own calls.
+CDR_SINCE="$(mysql_query 'SELECT NOW()')"
+export CDR_SINCE
+
+info "Building the bbs runner image"
+compose --profile tests build bbs-runner
+
+info "Running tests/bbs scenarios (run tag: $RUN_TAG)"
+# tests/bbs/entrypoint.sh iterates the scenarios, retries each one up to three
+# times and writes results_<scenario>.xml relative to the working directory.
+compose --profile tests run --rm bbs-runner || true
+
+shopt -s nullglob
+produced=("$ROOT"/results_*.xml)
+if [ "${#produced[@]}" -eq 0 ]; then
+    error "The bbs runner produced no results_*.xml files"
+    error "See scripts/known-failing.md before assuming a regression."
+    exit 1
+fi
+mv "${produced[@]}" "$RESULTS_DIR/"
+
+info "Merging per-scenario JUnit files"
+set +e
+"$ROOT/scripts/merge-junit" "$RUN_DIR/bbs-results.xml" "$RESULTS_DIR"/results_*.xml
+MERGE_STATUS=$?
+set -e
+
+info "Extracting CDRs"
+RUN_TAG="$RUN_TAG" "$ROOT/scripts/extract-cdrs"
+
+info "Run artifacts: $RUN_DIR"
+exit $MERGE_STATUS

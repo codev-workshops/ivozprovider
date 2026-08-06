@@ -1,0 +1,37 @@
+{
+	"id": "0c6cfd08-6bcb-4a4a-9a49-2f9ec6c8be1d",
+	"name": "IvozProvider BBS dataset environment (docker compose)",
+	"values": [
+		{
+			"key": "platform_api_url",
+			"value": "http://backend.ivozprovider.local/api/platform",
+			"type": "text",
+			"enabled": true
+		},
+		{
+			"key": "brand_api_url",
+			"value": "http://backend.ivozprovider.local/api/brand",
+			"type": "text",
+			"enabled": true
+		},
+		{
+			"key": "client_api_url",
+			"value": "http://backend.ivozprovider.local/api/client",
+			"type": "text",
+			"enabled": true
+		},
+		{
+			"key": "api_username",
+			"value": "admin",
+			"type": "text",
+			"enabled": true
+		},
+		{
+			"key": "api_password",
+			"value": "changeme",
+			"type": "text",
+			"enabled": true
+		}
+	],
+	"_postman_variable_scope": "environment"
+}

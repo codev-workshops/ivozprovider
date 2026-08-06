@@ -1,0 +1,190 @@
+#!/bin/bash
+#
+# Dump the call detail records produced by a run into a normalised CSV.
+#
+#   RUN_TAG=before ./scripts/extract-cdrs [OUTPUT.csv]
+#
+# CDR_SINCE='YYYY-MM-DD HH:MM:SS' limits the dump to the calls placed after that
+# moment (scripts/call-tests sets it to the database time it started at, so a
+# run only exports its own calls).
+#
+# Covers the three tables a call writes to (schema/initial.sql):
+#   kam_users_cdrs   - leg between the endpoint and the users proxy
+#   kam_trunks_cdrs  - leg between the trunks proxy and the carrier/DDI provider
+#   BillableCalls    - rated call, with price/cost/destination
+#
+# The output is meant to be diffed between two runs of the same scenarios, so
+# everything that legitimately changes run to run is normalised away:
+#   - rows are emitted in a fixed column order and sorted
+#   - auto-increment ids and call-ids are dropped (the call-id is kept only as
+#     a per-run sequence number so calls can still be lined up)
+#   - absolute timestamps become offsets in seconds from the first call of the
+#     run, durations are rounded to whole seconds
+# Use scripts/compare-cdrs to diff two of these files.
+
+set -e
+
+# shellcheck source=scripts/lib/baseline.sh
+source "$(dirname "$(realpath "$0")")/lib/baseline.sh"
+
+RUN_TAG="${RUN_TAG:-$(date -u +%Y%m%dT%H%M%SZ)}"
+USERS_FILTER=""
+BILLABLE_FILTER=""
+if [ -n "${CDR_SINCE:-}" ]; then
+    USERS_FILTER="WHERE c.start_time >= '$CDR_SINCE'"
+    BILLABLE_FILTER="WHERE bc.startTime >= '$CDR_SINCE'"
+fi
+OUTPUT="${1:-$BASELINE_DIR/$RUN_TAG/cdrs.csv}"
+mkdir -p "$(dirname "$OUTPUT")"
+
+RAW="$(mktemp)"
+trap 'rm -f "$RAW"' EXIT
+
+# Tab separated, one query per table (the three tables do not share a
+# collation, so a UNION over them is rejected). NULLs come out as \N and are
+# turned into empty strings by the normaliser below.
+mysql_query "
+SELECT 'users_cdr' AS source, c.start_time, c.end_time, c.duration, c.direction,
+       c.caller, c.callee, c.diversion, c.referee, c.referrer, c.callid,
+       COALESCE(b.name, ''), COALESCE(co.name, ''),
+       '', '', '', ''
+FROM kam_users_cdrs c
+    LEFT JOIN Brands b ON b.id = c.brandId
+    LEFT JOIN Companies co ON co.id = c.companyId
+$USERS_FILTER
+" > "$RAW"
+
+mysql_query "
+SELECT 'trunks_cdr', c.start_time, c.end_time, c.duration, c.direction,
+       c.caller, c.callee, c.diversion, '', '', c.callid,
+       COALESCE(b.name, ''), COALESCE(co.name, ''),
+       COALESCE(c.bounced, ''), COALESCE(ca.name, ''),
+       '', ''
+FROM kam_trunks_cdrs c
+    LEFT JOIN Brands b ON b.id = c.brandId
+    LEFT JOIN Companies co ON co.id = c.companyId
+    LEFT JOIN Carriers ca ON ca.id = c.carrierId
+$USERS_FILTER
+" >> "$RAW"
+
+mysql_query "
+SELECT 'billable_call', bc.startTime, '', bc.duration, bc.direction,
+       bc.caller, bc.callee, '', '', '', bc.callid,
+       COALESCE(b.name, ''), COALESCE(co.name, ''),
+       '', COALESCE(bc.carrierName, ''),
+       CONCAT(COALESCE(bc.price, ''), '|', COALESCE(bc.cost, '')),
+       CONCAT(COALESCE(bc.destinationName, ''), '|', COALESCE(bc.ratingPlanName, ''))
+FROM BillableCalls bc
+    LEFT JOIN Brands b ON b.id = bc.brandId
+    LEFT JOIN Companies co ON co.id = bc.companyId
+$BILLABLE_FILTER
+" >> "$RAW"
+
+python3 - "$RAW" "$OUTPUT" <<'PY'
+import csv
+import sys
+from datetime import datetime
+
+COLUMNS = [
+    "source", "call", "direction", "caller", "callee", "diversion",
+    "referee", "referrer", "start_offset", "duration", "bounced",
+    "brand", "company", "carrier", "price", "cost", "destination",
+    "rating_plan",
+]
+
+ZERO = "0000-00-00 00:00:00"
+
+
+def clean(value):
+    return "" if value in ("\\N", "NULL", ZERO, None) else value.strip()
+
+
+def parse_time(value):
+    value = clean(value)
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return None
+
+
+rows = []
+with open(sys.argv[1], newline="") as handle:
+    for line in csv.reader(handle, delimiter="\t", quoting=csv.QUOTE_NONE):
+        if len(line) < 17:
+            continue
+        (source, start, end, duration, direction, caller, callee, diversion,
+         referee, referrer, callid, brand, company, bounced, carrier,
+         price_cost, destination_plan) = [clean(value) for value in line[:17]]
+
+        price, _, cost = price_cost.partition("|")
+        destination, _, rating_plan = destination_plan.partition("|")
+        started = parse_time(start)
+        rows.append({
+            "source": source,
+            "callid": callid,
+            "started": started,
+            "direction": direction,
+            "caller": caller,
+            "callee": callee,
+            "diversion": diversion,
+            "referee": referee,
+            "referrer": referrer,
+            "duration": str(int(round(float(duration or 0)))),
+            "bounced": bounced,
+            "brand": brand,
+            "company": company,
+            "carrier": carrier,
+            "price": price,
+            "cost": cost,
+            "destination": destination,
+            "rating_plan": rating_plan,
+            "end": parse_time(end),
+        })
+
+# Timestamps are only comparable as offsets from the beginning of the run, and
+# call-ids are random per run: replace them with the position of the call in
+# time so two runs of the same scenarios line up.
+starts = [row["started"] for row in rows if row["started"]]
+origin = min(starts) if starts else None
+
+call_order = {}
+for row in sorted(rows, key=lambda row: (row["started"] or datetime.min, row["callid"])):
+    call_order.setdefault(row["callid"], len(call_order) + 1)
+
+output = []
+for row in rows:
+    offset = ""
+    if row["started"] and origin:
+        offset = str(int((row["started"] - origin).total_seconds()))
+    output.append({
+        "source": row["source"],
+        "call": f"call-{call_order[row['callid']]:04d}" if row["callid"] else "",
+        "direction": row["direction"],
+        "caller": row["caller"],
+        "callee": row["callee"],
+        "diversion": row["diversion"],
+        "referee": row["referee"],
+        "referrer": row["referrer"],
+        "start_offset": offset,
+        "duration": row["duration"],
+        "bounced": row["bounced"],
+        "brand": row["brand"],
+        "company": row["company"],
+        "carrier": row["carrier"],
+        "price": row["price"],
+        "cost": row["cost"],
+        "destination": row["destination"],
+        "rating_plan": row["rating_plan"],
+    })
+
+output.sort(key=lambda row: [row[column] for column in COLUMNS])
+
+with open(sys.argv[2], "w", newline="") as handle:
+    writer = csv.DictWriter(handle, fieldnames=COLUMNS)
+    writer.writeheader()
+    writer.writerows(output)
+
+print(f"{len(output)} CDR rows written to {sys.argv[2]}")
+PY

@@ -1,0 +1,64 @@
+#!/bin/bash
+#
+# Create every entity the SIP scenarios in tests/bbs expect.
+#
+# tests/bbs/dataset.json is the dataset those scenarios were written against:
+# it builds the "ZZZ - Test Brand for BBS" brand (domain
+# brand-bbs.ivozprovider.local), the vPBX company (domain
+# bbs.ivozprovider.local) with the alice/bob/charlie/dave/eve/frank users and
+# the 'friend' friend, the IVRs, queues, hunt groups, pickup groups,
+# conditional routes and call forward settings, plus the residential client
+# with device 20000 and the retail client with account 999666001 -- i.e. every
+# credential listed in tests/bbs/environment.yaml.
+#
+# It is a Postman collection driven through the REST API (the same API the
+# portals use), so the entities go through the normal lifecycle services and
+# the derived realtime rows (ps_endpoints, ps_aors, dialplan, ...) are written
+# as well. Loading library/DataFixtures/ORM/* instead is not an option here:
+# those fixtures target the sqlite database that
+# tests/docker/bin/prepare-fixtures builds for the unit/API test suites (see
+# schema/bin/prepare-test-db), they purge every table and they contain
+# unrelated demo data with no bbs.ivozprovider.local users at all.
+
+set -e
+
+# shellcheck source=scripts/lib/baseline.sh
+source "$(dirname "$(realpath "$0")")/lib/baseline.sh"
+
+NEWMAN_IMAGE="${NEWMAN_IMAGE:-postman/newman:alpine}"
+
+info "Waiting for the REST API..."
+for _ in $(seq 1 120); do
+    if docker run --rm --network "$COMPOSE_NETWORK" \
+        --add-host backend.ivozprovider.local:10.189.4.20 \
+        --entrypoint sh "$NEWMAN_IMAGE" -c \
+        "wget -q -O /dev/null http://backend.ivozprovider.local/api/platform/" 2>/dev/null; then
+        break
+    fi
+    sleep 5
+done
+
+# The collection recreates the brand from scratch (its first request deletes
+# it), so re-running it over a complete dataset is wasted work.
+if [ "${FORCE:-0}" != "1" ] && "$ROOT/scripts/check-bbs-dataset" > /dev/null 2>&1; then
+    info "Dataset already loaded (FORCE=1 to load it again)"
+    kamailio_reload
+    exit 0
+fi
+
+info "Loading tests/bbs/dataset.json"
+docker run --rm \
+    --network "$COMPOSE_NETWORK" \
+    --add-host backend.ivozprovider.local:10.189.4.20 \
+    --volume "$ROOT:/etc/newman" \
+    "$NEWMAN_IMAGE" run tests/bbs/dataset.json \
+        --environment tests/bbs/dataset-environment.json \
+        --env-var "api_username=$API_USERNAME" \
+        --env-var "api_password=$API_PASSWORD" \
+        --reporters cli \
+        --bail folder
+
+info "Checking the credentials tests/bbs/environment.yaml assumes exist"
+"$ROOT/scripts/check-bbs-dataset"
+
+kamailio_reload

@@ -1,0 +1,115 @@
+#!/bin/bash
+#
+# Run the existing test suites through the dispatcher that already knows how to
+# build the containers they need (tests/run-pipeline), plus the REST API
+# collection with newman against the running backend.
+#
+#   ./scripts/run-suites            everything
+#   ./scripts/run-suites backend    library/bin/test-* only
+#   ./scripts/run-suites portals    web/portal/<app>/bin/test-* only
+#   ./scripts/run-suites api        tests/rest/postman-api-tests.json only
+
+set -e
+
+# shellcheck source=scripts/lib/baseline.sh
+source "$(dirname "$(realpath "$0")")/lib/baseline.sh"
+
+NEWMAN_IMAGE="${NEWMAN_IMAGE:-postman/newman:alpine}"
+
+BACKEND_SUITES=(
+    library/bin/test-phpspec
+    library/bin/test-phpstan
+    library/bin/test-psalm
+    library/bin/test-codestyle
+)
+
+PORTAL_APPS=(platform brand client user)
+PORTAL_SUITES=(test-lint test-i18n test-build)
+
+FAILED=()
+
+function run_pipeline() {
+    info "tests/run-pipeline $1"
+    # run-pipeline runs its containers with --tty --interactive and always
+    # exits 0, so it needs a pty to run outside an interactive shell and the
+    # result has to be read from the message it prints.
+    local log
+    log="$(mktemp)"
+    script --quiet --return --command "$ROOT/tests/run-pipeline '$1'" /dev/null \
+        | tee "$log"
+    if grep -q "Test ended with errors" "$log"; then
+        FAILED+=("$1")
+    fi
+    rm -f "$log"
+}
+
+function run_backend() {
+    for suite in "${BACKEND_SUITES[@]}"; do
+        run_pipeline "$suite"
+    done
+}
+
+function run_portals() {
+    for app in "${PORTAL_APPS[@]}"; do
+        for suite in "${PORTAL_SUITES[@]}"; do
+            run_pipeline "web/portal/$app/bin/$suite"
+        done
+    done
+}
+
+function run_api() {
+    info "newman tests/rest/postman-api-tests.json"
+    # tests/rest/environment.json points at a production portal and carries a
+    # hardcoded Basic credential from when the API used http auth; the url and
+    # the authorization are overridden with the compose backend and a token of
+    # the admin user the rest of the stack uses.
+    local token
+    token="$(docker run --rm \
+        --network "$COMPOSE_NETWORK" \
+        --add-host backend.ivozprovider.local:10.189.4.20 \
+        --entrypoint sh "$NEWMAN_IMAGE" -c \
+        "wget -qO- --post-data 'username=$API_USERNAME&password=$API_PASSWORD' \
+            --header 'Content-Type: application/x-www-form-urlencoded' \
+            http://backend.ivozprovider.local/api/platform/admin_login" \
+        | sed -n 's/.*\"token\":\"\([^\"]*\)\".*/\1/p')"
+    if [ -z "$token" ]; then
+        error "Could not get a platform token from the backend"
+        FAILED+=("tests/rest/postman-api-tests.json")
+        return
+    fi
+
+    if ! docker run --rm \
+        --network "$COMPOSE_NETWORK" \
+        --add-host backend.ivozprovider.local:10.189.4.20 \
+        --volume "$ROOT:/etc/newman" \
+        "$NEWMAN_IMAGE" run tests/rest/postman-api-tests.json \
+            --environment tests/rest/environment.json \
+            --env-var "api_url=http://backend.ivozprovider.local/api/platform" \
+            --env-var "api_auth=Bearer $token" \
+            --env-var "api_username=$API_USERNAME" \
+            --env-var "api_password=$API_PASSWORD" \
+            --reporters cli; then
+        FAILED+=("tests/rest/postman-api-tests.json")
+    fi
+}
+
+case "${1:-all}" in
+    backend) run_backend ;;
+    portals) run_portals ;;
+    api)     run_api ;;
+    all)     run_backend; run_portals; run_api ;;
+    *)
+        echo "Usage: $(basename "$0") [all|backend|portals|api]" >&2
+        exit 1
+        ;;
+esac
+
+if [ "${#FAILED[@]}" -gt 0 ]; then
+    error "${#FAILED[@]} suite(s) failed:"
+    for suite in "${FAILED[@]}"; do
+        error "  - $suite"
+    done
+    exit 1
+fi
+
+info "All suites passed"

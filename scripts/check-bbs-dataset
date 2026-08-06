@@ -1,0 +1,70 @@
+#!/bin/bash
+#
+# Verify that every credential tests/bbs/environment.yaml uses really exists in
+# the database, as a SIP endpoint on the expected domain. Exits non-zero (and
+# lists what is missing) so 'legacy-baseline up' fails loudly instead of the
+# scenarios failing later for a data reason.
+
+set -e
+
+# shellcheck source=scripts/lib/baseline.sh
+source "$(dirname "$(realpath "$0")")/lib/baseline.sh"
+
+ENVIRONMENT_FILE="${ENVIRONMENT_FILE:-$ROOT/tests/bbs/environment.yaml}"
+
+# username:domain pairs, straight out of the scenarios' environment file
+CREDENTIALS=$(python3 - "$ENVIRONMENT_FILE" <<'PY'
+import re
+import sys
+
+text = open(sys.argv[1]).read()
+username = None
+for line in text.splitlines():
+    match = re.match(r'\s*username:\s*"?([^"\s]+)"?\s*$', line)
+    if match:
+        username = match.group(1)
+        continue
+    match = re.match(r'\s*domain:\s*"?([^"\s]+)"?\s*$', line)
+    if match and username:
+        print(f'{username}:{match.group(1)}')
+        username = None
+PY
+)
+
+MISSING=0
+for credential in $CREDENTIALS; do
+    username="${credential%%:*}"
+    domain="${credential##*:}"
+
+    found=$(mysql_query "
+        SELECT COUNT(*) FROM (
+            SELECT t.name, d.domain FROM Terminals t
+                JOIN Domains d ON d.id = t.domainId
+            UNION ALL
+            SELECT f.name, d.domain FROM Friends f
+                JOIN Domains d ON d.id = f.domainId
+            UNION ALL
+            SELECT r.name, d.domain FROM ResidentialDevices r
+                JOIN Domains d ON d.id = r.domainId
+            UNION ALL
+            SELECT ra.name, d.domain FROM RetailAccounts ra
+                JOIN Domains d ON d.id = ra.domainId
+        ) endpoints
+        WHERE name = '${username}' AND domain = '${domain}'")
+
+    if [ "${found:-0}" -gt 0 ]; then
+        info "$username@$domain"
+    else
+        error "MISSING: $username@$domain"
+        MISSING=$((MISSING + 1))
+    fi
+done
+
+if [ "$MISSING" -gt 0 ]; then
+    error "$MISSING credential(s) from $ENVIRONMENT_FILE are not in the database"
+    error "Re-run scripts/seed-bbs-dataset, or check the newman output for the"
+    error "requests in tests/bbs/dataset.json that failed."
+    exit 1
+fi
+
+info "All tests/bbs/environment.yaml credentials are present"
