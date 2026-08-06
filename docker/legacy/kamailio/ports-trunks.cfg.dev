@@ -1,0 +1,10 @@
+# Baseline override for /etc/kamailio/proxytrunks/ports.cfg. See the header of
+# ports-users.cfg.dev for why the DMQ URIs differ from printPorts() output.
+#!define TRUNKS_DMQ_SERVER "sip:trunks:5060"
+#!define USERS_DMQ_SERVER "sip:users:5060"
+
+#!define SIP_PORT 5060
+#!define SIPS_PORT 5061
+#!define RPC_PORT 8001
+#!define XMLRPC_PORT 8002
+

@@ -1,0 +1,12 @@
+Section: misc
+Priority: optional
+Standards-Version: 3.9.2
+
+Package: dkms
+Version: 3.0.0
+Maintainer: IvozProvider legacy baseline <ivozprovider@example.invalid>
+Provides: dkms
+Description: Stub dkms for the containerised legacy baseline
+ rtpengine Pre-Depends on dkms so it can build its in-kernel packet forwarder.
+ The baseline stack runs rtpengine in userspace only, so this stub satisfies
+ the dependency without pulling a compiler toolchain into the image.

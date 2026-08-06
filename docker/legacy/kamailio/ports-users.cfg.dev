@@ -1,0 +1,18 @@
+# Baseline override for /etc/kamailio/proxyusers/ports.cfg, installed as
+# ports.cfg.dev so autoconf picks it up through the override hook it already
+# implements (see profiles/proxy/etc/kamailio/autoconf).
+#
+# Identical to what printPorts() generates, except for the two DMQ URIs. dmq
+# requires server_address to name a socket the proxy is actually listening on,
+# and autoconf makes the id=1 socket listen on the bare name `users`/`trunks`
+# rather than the FQDN, so the FQDN form fails mod_init on a single-node stack.
+#!define TRUNKS_DMQ_SERVER "sip:trunks:5060"
+#!define USERS_DMQ_SERVER "sip:users:5060"
+#!define TRUNKS_SIP_PORT 5060
+
+#!define SIP_PORT 5060
+#!define SIPS_PORT 5061
+#!define RPC_PORT 8000
+#!define WS_PORT 10080
+#!define WSS_PORT 10081
+
