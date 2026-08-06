@@ -22,6 +22,11 @@ BASELINE_API_BASE=${BASELINE_API_BASE:-http://backend.ivozprovider.local/api}
 BASELINE_API_USERNAME=${BASELINE_API_USERNAME:-admin}
 BASELINE_API_PASSWORD=${BASELINE_API_PASSWORD:-changeme}
 
+# Fixed address for the bbs container. The BBS scenarios place calls into
+# proxytrunks as if they came from a carrier, so the tester has to be a trusted
+# DDI provider address, and outbound calls have to be routed back to it.
+BASELINE_BBS_ADDRESS=${BASELINE_BBS_ADDRESS:-10.189.4.50}
+
 BASELINE_MYSQL_ROOT_PASSWORD=${BASELINE_MYSQL_ROOT_PASSWORD:-changeme}
 BASELINE_MYSQL_DATABASE=${BASELINE_MYSQL_DATABASE:-ivozprovider}
 
@@ -77,4 +82,28 @@ baseline_newman() {
         --user "${UID}:${GID}" \
         "${BASELINE_NEWMAN_IMAGE:-postman/newman:6-alpine}" \
         "$@"
+}
+
+# baseline_api <token> <method> <path> [body] - call the REST API from inside the
+# backend container.
+baseline_api() {
+    baseline_compose exec -T backend \
+        curl -s -X "$2" "http://localhost/api$3" \
+        -H "Authorization: Bearer $1" \
+        -H "Content-Type: application/json" \
+        ${4:+-d "$4"}
+}
+
+baseline_platform_token() {
+    baseline_compose exec -T backend \
+        curl -s -X POST http://localhost/api/platform/admin_login \
+        -F "username=${BASELINE_API_USERNAME}" -F "password=${BASELINE_API_PASSWORD}" |
+        sed -nr 's/.*"token":"([^"]+)".*/\1/p'
+}
+
+baseline_brand_token() {
+    baseline_compose exec -T backend \
+        curl -s -X POST http://localhost/api/brand/token/exchange \
+        -F "token=$1" -F "username=${2:-brandadmin}" |
+        sed -nr 's/.*"token":"([^"]+)".*/\1/p'
 }

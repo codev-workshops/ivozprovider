@@ -33,6 +33,34 @@ baseline_newman run tests/bbs/dataset.json \
 status=$?
 set -e
 
+# The dataset pins the DDI provider addresses and the carrier to the public
+# addresses of Irontec's own BBS runner. On this stack the tester is a container
+# on the compose network, so both have to point at it: inbound scenarios only
+# get past proxytrunks if the caller is a trusted DDI provider address, and
+# outbound ones need the carrier to route back to the tester. Done through the
+# API rather than with SQL so kam_trusted is rebuilt the same way it would be in
+# production.
+echo
+echo "Pointing the BBS carrier and DDI provider at ${BASELINE_BBS_ADDRESS}..."
+
+platform_token=$(baseline_platform_token)
+brand_token=$(baseline_brand_token "${platform_token}")
+
+collection_ids() {
+    baseline_api "${brand_token}" GET "$1" |
+        python3 -c 'import json,sys; print(" ".join(str(i["id"]) for i in json.load(sys.stdin)))'
+}
+
+for id in $(collection_ids /brand/ddi_provider_addresses); do
+    baseline_api "${brand_token}" PUT "/brand/ddi_provider_addresses/${id}" \
+        "{\"ip\":\"${BASELINE_BBS_ADDRESS}\"}" >/dev/null
+done
+
+for id in $(collection_ids /brand/carrier_servers); do
+    baseline_api "${brand_token}" PUT "/brand/carrier_servers/${id}" \
+        "{\"sipProxy\":\"${BASELINE_BBS_ADDRESS}\"}" >/dev/null
+done
+
 # On a real deployment the ivozprovider-realtime microservice watches the
 # database and pushes these reloads to each proxy as objects change. The
 # baseline has no realtime service, so the caches are refreshed here

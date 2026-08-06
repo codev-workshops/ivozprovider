@@ -41,6 +41,7 @@ echo "==> Running scenarios"
 set +e
 docker run --rm \
     --network "${BASELINE_NETWORK}" \
+    --ip "${BASELINE_BBS_ADDRESS}" \
     --volume "${ROOT}:/opt/irontec/ivozprovider" \
     --workdir /opt/irontec/ivozprovider \
     --user "${UID}:${GID}" \
