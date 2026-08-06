@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+#
+# Load the fixtures the call tests assume into a running baseline stack.
+#
+# schema/initial.sql and the Doctrine migrations are applied by the containers
+# themselves (docker/mariadb/Dockerfile and docker/backend/start.sh). What they
+# leave behind is an empty platform: no brands, no companies, no users. The
+# telephony fixtures - the tests/bbs/environment.yaml users, the residential and
+# retail brands, DDIs, IVRs, queues, hunt groups, conferences and call forward
+# settings - live in tests/bbs/dataset.json, a Postman collection that creates
+# them all through the REST API. This runs it.
+set -euo pipefail
+
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+# shellcheck source=scripts/lib/baseline.sh
+source "${ROOT}/scripts/lib/baseline.sh"
+
+RESULTS_DIR=${RESULTS_DIR:-${ROOT}/results/seed}
+mkdir -p "${RESULTS_DIR}"
+
+echo "Seeding tests/bbs/dataset.json through ${BASELINE_API_BASE}..."
+
+set +e
+baseline_newman run tests/bbs/dataset.json \
+    --env-var "platform_api_url=${BASELINE_API_BASE}/platform" \
+    --env-var "brand_api_url=${BASELINE_API_BASE}/brand" \
+    --env-var "client_api_url=${BASELINE_API_BASE}/client" \
+    --env-var "api_username=${BASELINE_API_USERNAME}" \
+    --env-var "api_password=${BASELINE_API_PASSWORD}" \
+    --reporters cli,junit \
+    --reporter-junit-export "results/seed/dataset.xml" \
+    --timeout-request 30000
+status=$?
+set -e
+
+# The dataset pins the BBS carrier and the two DDI provider addresses to the
+# public addresses of Irontec's own BBS runner. Both have to point into this
+# stack instead, and the two DDI provider addresses play different roles:
+#
+#   * the first is the "outside world" - the tester dialling in over the trunk.
+#     An inbound INVITE is only accepted if its source is a trusted DDI provider
+#     address (route[MATCH_DDI] in proxytrunks/kamailio.cfg).
+#   * the second is proxytrunks itself, because the carrier loops calls straight
+#     back in. That is what the ddi-bounced scenarios exercise: an internal
+#     caller dials a DDI, the call leaves through the trunk and arrives back as
+#     if it came from the carrier.
+#
+# Done through the API rather than with SQL so the same lifecycle services run
+# as in production.
+echo
+echo "Pointing the BBS carrier and DDI provider at the baseline stack..."
+
+platform_token=$(baseline_platform_token)
+brand_token=$(baseline_brand_token "${platform_token}")
+
+collection_ids() {
+    baseline_api "${brand_token}" GET "$1" |
+        python3 -c 'import json,sys; print(" ".join(str(i["id"]) for i in json.load(sys.stdin)))'
+}
+
+address="${BASELINE_BBS_ADDRESS}"
+for id in $(collection_ids /brand/ddi_provider_addresses); do
+    baseline_api "${brand_token}" PUT "/brand/ddi_provider_addresses/${id}" \
+        "{\"ip\":\"${address}\"}" >/dev/null
+    address="${BASELINE_PROXYTRUNKS_ADDRESS}"
+done
+
+for id in $(collection_ids /brand/carrier_servers); do
+    baseline_api "${brand_token}" PUT "/brand/carrier_servers/${id}" \
+        "{\"sipProxy\":\"${BASELINE_PROXYTRUNKS_ADDRESS}\"}" >/dev/null
+done
+
+# On a real deployment the ivozprovider-realtime microservice watches the
+# database and pushes these reloads to each proxy as objects change. The
+# baseline has no realtime service, so the caches are refreshed here
+# instead, once, after the fixtures are in place.
+for proxy in users trunks; do
+    for rpc in domain.reload dialplan.reload lcr.reload dispatcher.reload \
+               permissions.addressReload permissions.trustedReload; do
+        baseline_compose exec -T "kamailio-${proxy}" \
+            kamcmd -s "unix:/run/kamailio/kamailio_proxy${proxy}_ctl" "${rpc}" \
+            >/dev/null 2>&1 || echo "  ${proxy}: ${rpc} not available" >&2
+    done
+done
+
+echo
+echo "Seeded objects:"
+baseline_mysql "
+    SELECT 'Brands', COUNT(*) FROM Brands
+    UNION ALL SELECT 'Companies', COUNT(*) FROM Companies
+    UNION ALL SELECT 'Users', COUNT(*) FROM Users
+    UNION ALL SELECT 'Terminals', COUNT(*) FROM Terminals
+    UNION ALL SELECT 'DDIs', COUNT(*) FROM DDIs
+    UNION ALL SELECT 'IVRs', COUNT(*) FROM IVRs
+    UNION ALL SELECT 'Queues', COUNT(*) FROM Queues
+    UNION ALL SELECT 'HuntGroups', COUNT(*) FROM HuntGroups
+    UNION ALL SELECT 'ConferenceRooms', COUNT(*) FROM ConferenceRooms
+    UNION ALL SELECT 'ResidentialDevices', COUNT(*) FROM ResidentialDevices
+    UNION ALL SELECT 'RetailAccounts', COUNT(*) FROM RetailAccounts
+"
+
+echo
+echo "JUnit report: ${RESULTS_DIR}/dataset.xml"
+exit "${status}"

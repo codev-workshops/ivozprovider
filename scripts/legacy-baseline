@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+#
+# Bring up / tear down the legacy baseline stack: the pre-migration platform
+# (data, cache, backend, portals) plus the SIP/media plane (kamailio-users,
+# kamailio-trunks, asterisk, rtpengine) running the same packages.irontec.com
+# packages a real deployment runs.
+#
+# Usage:
+#   ./scripts/legacy-baseline up       build, start and seed everything
+#   ./scripts/legacy-baseline seed     (re-)load the tests/bbs fixtures
+#   ./scripts/legacy-baseline status   per-service state and health
+#   ./scripts/legacy-baseline logs     follow logs
+#   ./scripts/legacy-baseline down     stop, keeping volumes
+#   ./scripts/legacy-baseline destroy  stop and delete volumes
+#
+# See doc/legacy-baseline.md.
+set -euo pipefail
+
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+cd "$ROOT"
+
+# shellcheck source=scripts/lib/baseline.sh
+source "${ROOT}/scripts/lib/baseline.sh"
+
+usage() {
+    sed -n '3,17p' "${BASH_SOURCE[0]}" | sed 's/^#\s\?//'
+}
+
+cmd_up() {
+    # docker compose bind-mounts these; if docker creates them they end up owned
+    # by root and composer/npm inside the containers cannot write to them.
+    mkdir -p "${HOME}/.cache/composer"
+
+    local services=("${BASELINE_CORE_SERVICES[@]}")
+    if [ -d "${ROOT}/../ivoz-ui" ]; then
+        services+=("${BASELINE_PORTAL_SERVICES[@]}")
+    else
+        echo "note: ../ivoz-ui is not checked out, skipping the portal services." >&2
+        echo "      Call tests do not need them; see doc/legacy-baseline.md." >&2
+    fi
+
+    baseline_compose up -d --build "${services[@]}"
+
+    echo "Waiting for services to become healthy (first run compiles the PHP"
+    echo "dependencies and applies ~124 Doctrine migrations, allow ~10 min)..."
+    baseline_wait_healthy "${services[@]}"
+    cmd_status
+
+    cmd_seed
+}
+
+cmd_seed() {
+    "${ROOT}/scripts/seed-fixtures"
+}
+
+cmd_status() {
+    baseline_compose ps -a --format 'table {{.Service}}\t{{.State}}\t{{.Health}}'
+}
+
+cmd_logs() {
+    baseline_compose logs -f "$@"
+}
+
+cmd_down() {
+    baseline_compose down
+}
+
+cmd_destroy() {
+    baseline_compose down -v
+}
+
+case "${1:-}" in
+    up|seed|status|logs|down|destroy)
+        cmd="$1"
+        shift
+        "cmd_${cmd}" "$@"
+        ;;
+    *)
+        usage
+        exit 2
+        ;;
+esac

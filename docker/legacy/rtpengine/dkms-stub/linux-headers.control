@@ -1,0 +1,11 @@
+Section: misc
+Priority: optional
+Standards-Version: 3.9.2
+
+Package: linux-headers-amd64
+Version: 6.1.0
+Maintainer: IvozProvider legacy baseline <ivozprovider@example.invalid>
+Provides: linux-headers-amd64
+Description: Stub kernel headers for the containerised legacy baseline
+ Satisfies the rtpengine Pre-Depends. No kernel module is built in the
+ container; rtpengine forwards media in userspace.

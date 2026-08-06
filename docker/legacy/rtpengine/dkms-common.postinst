@@ -1,0 +1,9 @@
+#!/bin/sh
+# No-op replacement for /usr/lib/dkms/common.postinst.
+#
+# ivozprovider-rtpengine ships a dh_dkms postinst that aborts unless this file
+# exists, because it wants to build the rtpengine in-kernel packet forwarder.
+# A container has no kernel to build against, so the baseline runs rtpengine's
+# userspace forwarder instead (table = -1 in rtpengine.conf) and the module is
+# deliberately never built.
+exit 0

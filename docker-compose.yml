@@ -16,6 +16,9 @@ services:
     networks:
       network:
         ipv4_address: 10.189.4.10
+        aliases:
+          - data
+          - data.ivozprovider.local
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h localhost -u regular -pchangeme"]
       interval: 5s
@@ -33,6 +36,9 @@ services:
     networks:
       network:
         ipv4_address: 10.189.4.11
+        aliases:
+          - cache
+          - cache.ivozprovider.local
     healthcheck:
       test: ["CMD", "redis-cli", "-p", "26379", "ping"]
       interval: 30s
@@ -55,6 +61,7 @@ services:
         GID: "${GID:-1000}"
     volumes:
       - .:/opt/irontec/ivozprovider
+      - storage:/opt/irontec/ivozprovider/storage
       - ~/.cache/composer:/home/docker/.cache/composer
     depends_on:
       data:
@@ -69,6 +76,10 @@ services:
     networks:
       network:
         ipv4_address: 10.189.4.20
+        aliases:
+          - backend
+          - backend.ivozprovider.local
+          - storage.ivozprovider.local
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost || exit 1"]
       interval: 30s
@@ -172,6 +183,140 @@ services:
       network:
         ipv4_address: 10.189.4.33
 
+  # ---------------------------------------------------------------------------
+  # SIP/media plane. These four run the same packages as a real deployment
+  # (packages.irontec.com, suite tempest); their entrypoints reproduce the
+  # configuration that the ivozprovider-profile-proxy / -profile-as postinst
+  # scripts apply from debconf. See doc/legacy-baseline.md.
+  # ---------------------------------------------------------------------------
+  kamailio-users:
+    hostname: proxyusers
+    container_name: ivozprovider-kamailio-users
+    image: ivozprovider-legacy-kamailio:local
+    build:
+      context: .
+      dockerfile: docker/legacy/kamailio/Dockerfile
+    command: ["users"]
+    environment:
+      MYSQL_HOST: data.ivozprovider.local
+      MYSQL_PASSWORD: changeme
+    depends_on:
+      data:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      # autoconf reads columns (ProxyUsers.advertisedIp) that only exist once
+      # the Doctrine migrations run, which start.sh does before apache comes up.
+      backend:
+        condition: service_healthy
+    networks:
+      network:
+        ipv4_address: 10.189.4.40
+        aliases:
+          # autoconf writes `listen=udp:users:SIP_PORT` for the id=1 socket, so
+          # the bare `users` name has to resolve inside the container too.
+          - users
+          - users.ivozprovider.local
+          # SIP domains the tests/bbs users register against.
+          - bbs.ivozprovider.local
+          - brand-bbs.ivozprovider.local
+    healthcheck:
+      test: ["CMD-SHELL", "kamcmd -s unix:/run/kamailio/kamailio_proxyusers_ctl core.uptime > /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  kamailio-trunks:
+    hostname: proxytrunks
+    container_name: ivozprovider-kamailio-trunks
+    image: ivozprovider-legacy-kamailio:local
+    build:
+      context: .
+      dockerfile: docker/legacy/kamailio/Dockerfile
+    command: ["trunks"]
+    environment:
+      MYSQL_HOST: data.ivozprovider.local
+      MYSQL_PASSWORD: changeme
+    depends_on:
+      data:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      # autoconf reads columns (ProxyUsers.advertisedIp) that only exist once
+      # the Doctrine migrations run, which start.sh does before apache comes up.
+      backend:
+        condition: service_healthy
+    networks:
+      network:
+        ipv4_address: 10.189.4.41
+        aliases:
+          - trunks
+          - trunks.ivozprovider.local
+    healthcheck:
+      test: ["CMD-SHELL", "kamcmd -s unix:/run/kamailio/kamailio_proxytrunks_ctl core.uptime > /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  asterisk:
+    hostname: as001
+    container_name: ivozprovider-asterisk
+    image: ivozprovider-legacy-asterisk:local
+    build:
+      context: .
+      dockerfile: docker/legacy/asterisk/Dockerfile
+    environment:
+      MYSQL_HOST: data.ivozprovider.local
+      MYSQL_PASSWORD: changeme
+    volumes:
+      - storage:/opt/irontec/ivozprovider/storage
+    depends_on:
+      data:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    networks:
+      network:
+        ipv4_address: 10.189.4.42
+        aliases:
+          - as001
+          - as001.ivozprovider.local
+    healthcheck:
+      test: ["CMD-SHELL", "asterisk -rx 'core waitfullybooted' > /dev/null"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  rtpengine:
+    hostname: rtpengine
+    container_name: ivozprovider-rtpengine
+    image: ivozprovider-legacy-rtpengine:local
+    build:
+      context: .
+      dockerfile: docker/legacy/rtpengine/Dockerfile
+    environment:
+      MEDIA_RELAY_ADDRESS: 10.189.4.43
+      MEDIA_RELAY_CONTROL: 10.189.4.43
+      MEDIA_RELAY_MINPORT: 13000
+      MEDIA_RELAY_MAXPORT: 13500
+    volumes:
+      - storage:/opt/irontec/ivozprovider/storage
+    networks:
+      network:
+        ipv4_address: 10.189.4.43
+        aliases:
+          - rtpengine
+          - rtpengine.ivozprovider.local
+    healthcheck:
+      test: ["CMD-SHELL", "rtpengine-ctl -i 127.0.0.1:9900 list numsessions > /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
 networks:
   network:
     driver: bridge
@@ -182,3 +327,6 @@ networks:
 
 volumes:
   dbdata:
+  # /opt/irontec/ivozprovider/storage is NFS on a real deployment: recordings
+  # written by rtpengine/asterisk are read back by the API.
+  storage:

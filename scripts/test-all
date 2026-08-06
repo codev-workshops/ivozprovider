@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+#
+# One entrypoint for every suite in the repository, so a migrated stack can be
+# put through the same checks as the legacy baseline.
+#
+#   ./scripts/test-all            everything
+#   ./scripts/test-all backend    library/bin/test-* through tests/run-pipeline
+#   ./scripts/test-all portal     the portal lint/i18n/build scripts
+#   ./scripts/test-all rest       tests/rest/postman-api-tests.json via newman
+#   ./scripts/test-all calls      the BBS call scenarios (./scripts/call-tests)
+#
+# The call scenarios need a running stack (./scripts/legacy-baseline up); the
+# other suites are self-contained and only need Docker.
+#
+# Prints a pass/fail line per suite and exits non-zero if any failed.
+set -uo pipefail
+
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+# shellcheck source=scripts/lib/baseline.sh
+source "${ROOT}/scripts/lib/baseline.sh"
+
+cd "$ROOT" || exit 1
+
+RESULTS=${RESULTS:-results/test-all}
+mkdir -p "${RESULTS}"
+
+declare -a NAMES=() OUTCOMES=()
+
+run() {
+    local name=$1
+    shift
+    echo
+    echo "==> ${name}"
+    if "$@" > "${RESULTS}/${name//\//-}.log" 2>&1; then
+        NAMES+=("$name"); OUTCOMES+=("pass")
+        echo "    pass"
+    else
+        NAMES+=("$name"); OUTCOMES+=("FAIL")
+        echo "    FAIL - see ${RESULTS}/${name//\//-}.log"
+        tail -20 "${RESULTS}/${name//\//-}.log" | sed 's/^/    /'
+    fi
+}
+
+# tests/run-pipeline already knows how to build the testing image and wire up
+# the sidecars each suite needs; --skip-deps is left off deliberately so a clean
+# machine works.
+pipeline() {
+    tests/run-pipeline --quiet "$1"
+}
+
+backend_suites() {
+    for suite in \
+        library/bin/test-phpspec \
+        library/bin/test-phpstan \
+        library/bin/test-psalm \
+        library/bin/test-codestyle
+    do
+        run "$suite" pipeline "$suite"
+    done
+}
+
+portal_suites() {
+    for portal in platform brand client user; do
+        for suite in test-lint test-i18n test-build; do
+            run "web/portal/${portal}/bin/${suite}" \
+                pipeline "web/portal/${portal}/bin/${suite}"
+        done
+    done
+}
+
+rest_suite() {
+    # The collection predates the JWT API and authenticates with HTTP Basic
+    # against the platform REST endpoint; BASELINE_REST_* let it be pointed at
+    # whichever stack is under test.
+    run tests/rest/postman-api-tests baseline_newman run tests/rest/postman-api-tests.json \
+        --env-var "api_url=${BASELINE_REST_URL:-${BASELINE_API_BASE}/platform}" \
+        --env-var "api_auth=${BASELINE_REST_AUTH:-Basic $(printf '%s' "${BASELINE_API_USERNAME}:${BASELINE_API_PASSWORD}" | base64)}" \
+        --reporters cli,junit \
+        --reporter-junit-export "${RESULTS}/postman-api-tests.xml" \
+        --timeout-request 30000
+}
+
+call_suite() {
+    run scripts/call-tests ./scripts/call-tests
+}
+
+case "${1:-all}" in
+    backend) backend_suites ;;
+    portal)  portal_suites ;;
+    rest)    rest_suite ;;
+    calls)   call_suite ;;
+    all)     backend_suites; portal_suites; rest_suite; call_suite ;;
+    *)       echo "unknown suite: $1" >&2; exit 2 ;;
+esac
+
+echo
+echo "Summary"
+failed=0
+for i in "${!NAMES[@]}"; do
+    printf '  %-45s %s\n' "${NAMES[$i]}" "${OUTCOMES[$i]}"
+    [[ ${OUTCOMES[$i]} == "FAIL" ]] && failed=$((failed + 1))
+done
+echo
+echo "${#NAMES[@]} suites, ${failed} failed"
+exit $((failed > 0))

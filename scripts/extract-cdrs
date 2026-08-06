@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+#
+# Dump the CDRs a call-tests run produced into normalised CSV, one file per
+# table, so two runs on different stacks can be compared.
+#
+# Normalised means: no surrogate keys, no host- or run-specific values, and
+# absolute timestamps reduced to durations. What is left is what a migration has
+# to preserve - which calls happened, how long they lasted, and what they cost.
+#
+# Usage: ./scripts/extract-cdrs [output-directory]
+set -euo pipefail
+
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+# shellcheck source=scripts/lib/baseline.sh
+source "${ROOT}/scripts/lib/baseline.sh"
+
+OUT=${1:-${ROOT}/results/cdrs}
+mkdir -p "${OUT}"
+
+# Ordering has to be deterministic and independent of insertion order, so the
+# diff of two runs is not dominated by ids being handed out in a different
+# sequence.
+dump() {
+    local name=$1 query=$2
+    baseline_mysql_csv "${query}" | tr '\t' ',' > "${OUT}/${name}.csv"
+    rows=$(wc -l < "${OUT}/${name}.csv"); echo "  ${OUT}/${name}.csv ($((rows > 0 ? rows - 1 : 0)) rows)"
+}
+
+echo "Extracting CDRs to ${OUT}"
+
+dump kam_users_cdrs "
+    SELECT direction, caller, callee, diversion, referee, referrer,
+           duration, responseCode,
+           brandId, companyId, userId, friendId
+    FROM kam_users_cdrs
+    ORDER BY direction, caller, callee, duration, id"
+
+dump kam_trunks_cdrs "
+    SELECT direction, caller, callee, diversion, bounced,
+           duration,
+           brandId, companyId, carrierId, ddiId, ddiProviderId,
+           userId, friendId, residentialDeviceId, retailAccountId
+    FROM kam_trunks_cdrs
+    ORDER BY direction, caller, callee, duration, id"
+
+dump billable_calls "
+    SELECT direction, caller, callee,
+           duration, cost, price,
+           carrierName, destinationName, ratingPlanName,
+           endpointType, endpointName,
+           brandId, companyId, carrierId, destinationId, ratingPlanGroupId,
+           ddiId, ddiProviderId
+    FROM BillableCalls
+    ORDER BY direction, caller, callee, duration, id"

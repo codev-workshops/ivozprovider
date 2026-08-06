@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+#
+# Diff two ./scripts/extract-cdrs outputs, so a migrated stack can be judged
+# against the legacy baseline.
+#
+# Usage: ./scripts/compare-cdrs <baseline-dir> <candidate-dir>
+set -euo pipefail
+
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+
+if [[ $# -ne 2 ]]; then
+    echo "usage: $0 <baseline-dir> <candidate-dir>" >&2
+    exit 2
+fi
+
+exec python3 "${ROOT}/scripts/lib/compare-cdrs.py" "$1" "$2"
