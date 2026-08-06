@@ -26,6 +26,7 @@ BASELINE_API_PASSWORD=${BASELINE_API_PASSWORD:-changeme}
 # proxytrunks as if they came from a carrier, so the tester has to be a trusted
 # DDI provider address, and outbound calls have to be routed back to it.
 BASELINE_BBS_ADDRESS=${BASELINE_BBS_ADDRESS:-10.189.4.50}
+BASELINE_PROXYTRUNKS_ADDRESS=${BASELINE_PROXYTRUNKS_ADDRESS:-10.189.4.41}
 
 BASELINE_MYSQL_ROOT_PASSWORD=${BASELINE_MYSQL_ROOT_PASSWORD:-changeme}
 BASELINE_MYSQL_DATABASE=${BASELINE_MYSQL_DATABASE:-ivozprovider}

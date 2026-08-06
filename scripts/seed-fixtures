@@ -33,15 +33,22 @@ baseline_newman run tests/bbs/dataset.json \
 status=$?
 set -e
 
-# The dataset pins the DDI provider addresses and the carrier to the public
-# addresses of Irontec's own BBS runner. On this stack the tester is a container
-# on the compose network, so both have to point at it: inbound scenarios only
-# get past proxytrunks if the caller is a trusted DDI provider address, and
-# outbound ones need the carrier to route back to the tester. Done through the
-# API rather than with SQL so kam_trusted is rebuilt the same way it would be in
-# production.
+# The dataset pins the BBS carrier and the two DDI provider addresses to the
+# public addresses of Irontec's own BBS runner. Both have to point into this
+# stack instead, and the two DDI provider addresses play different roles:
+#
+#   * the first is the "outside world" - the tester dialling in over the trunk.
+#     An inbound INVITE is only accepted if its source is a trusted DDI provider
+#     address (route[MATCH_DDI] in proxytrunks/kamailio.cfg).
+#   * the second is proxytrunks itself, because the carrier loops calls straight
+#     back in. That is what the ddi-bounced scenarios exercise: an internal
+#     caller dials a DDI, the call leaves through the trunk and arrives back as
+#     if it came from the carrier.
+#
+# Done through the API rather than with SQL so the same lifecycle services run
+# as in production.
 echo
-echo "Pointing the BBS carrier and DDI provider at ${BASELINE_BBS_ADDRESS}..."
+echo "Pointing the BBS carrier and DDI provider at the baseline stack..."
 
 platform_token=$(baseline_platform_token)
 brand_token=$(baseline_brand_token "${platform_token}")
@@ -51,14 +58,16 @@ collection_ids() {
         python3 -c 'import json,sys; print(" ".join(str(i["id"]) for i in json.load(sys.stdin)))'
 }
 
+address="${BASELINE_BBS_ADDRESS}"
 for id in $(collection_ids /brand/ddi_provider_addresses); do
     baseline_api "${brand_token}" PUT "/brand/ddi_provider_addresses/${id}" \
-        "{\"ip\":\"${BASELINE_BBS_ADDRESS}\"}" >/dev/null
+        "{\"ip\":\"${address}\"}" >/dev/null
+    address="${BASELINE_PROXYTRUNKS_ADDRESS}"
 done
 
 for id in $(collection_ids /brand/carrier_servers); do
     baseline_api "${brand_token}" PUT "/brand/carrier_servers/${id}" \
-        "{\"sipProxy\":\"${BASELINE_BBS_ADDRESS}\"}" >/dev/null
+        "{\"sipProxy\":\"${BASELINE_PROXYTRUNKS_ADDRESS}\"}" >/dev/null
 done
 
 # On a real deployment the ivozprovider-realtime microservice watches the
@@ -66,7 +75,8 @@ done
 # baseline has no realtime service, so the caches are refreshed here
 # instead, once, after the fixtures are in place.
 for proxy in users trunks; do
-    for rpc in domain.reload dispatcher.reload permissions.addressReload; do
+    for rpc in domain.reload dialplan.reload lcr.reload dispatcher.reload \
+               permissions.addressReload permissions.trustedReload; do
         baseline_compose exec -T "kamailio-${proxy}" \
             kamcmd -s "unix:/run/kamailio/kamailio_proxy${proxy}_ctl" "${rpc}" \
             >/dev/null 2>&1 || echo "  ${proxy}: ${rpc} not available" >&2
