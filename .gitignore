@@ -22,3 +22,4 @@ doc/doctrees/
 
 # Baseline test artefacts (scripts/legacy-baseline, scripts/call-tests).
 /results/
+__pycache__/

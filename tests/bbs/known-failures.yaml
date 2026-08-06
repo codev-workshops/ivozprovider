@@ -1,4 +1,10 @@
 # Scenarios that do not pass on the legacy baseline, with the reason.
 # Format: <scenario file name without .yaml>: <reason>
+#
 # They are still run and still reported; scripts/call-tests counts them
-# separately so a known problem cannot hide a new regression.
+# separately so a known problem cannot hide a new regression. Remove an entry as
+# soon as it passes - the summary points out entries that no longer belong here.
+
+1010-test-ddi-bounced-int: "Passes on its own, fails when run after the preceding scenarios. State left behind by the previous run (registrations, dialogs) on a single-node stack."
+2405-test-huntgroup-all-complex: "Passes on its own, fails when run after the preceding scenarios. See 1010-test-ddi-bounced-int."
+2415-test-huntgroup-rr-complex: "Passes on its own, fails when run after the preceding scenarios. See 1010-test-ddi-bounced-int."

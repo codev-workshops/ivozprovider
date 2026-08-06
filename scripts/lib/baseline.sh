@@ -73,6 +73,13 @@ baseline_mysql() {
         --default-character-set=utf8 -N -B "${BASELINE_MYSQL_DATABASE}" -e "$1"
 }
 
+# As baseline_mysql, but keeps the column names as a header row.
+baseline_mysql_csv() {
+    baseline_compose exec -T data \
+        mysql -uroot -p"${BASELINE_MYSQL_ROOT_PASSWORD}" \
+        --default-character-set=utf8 -B "${BASELINE_MYSQL_DATABASE}" -e "$1"
+}
+
 # baseline_newman <newman args>... - run newman on the compose network so it can
 # resolve backend.ivozprovider.local, with the repository mounted at /work.
 baseline_newman() {

@@ -42,6 +42,15 @@ def load_known_failures(path):
     return known
 
 
+def read_attempts(results_dir, name):
+    path = os.path.join(results_dir, "attempts_{}.txt".format(name))
+    try:
+        with open(path, encoding="utf-8") as handle:
+            return int(handle.read().strip())
+    except (OSError, ValueError):
+        return 1
+
+
 def read_scenario(results_dir, name):
     """Return (cases, ok) for one scenario, where cases is a list of elements."""
     path = os.path.join(results_dir, "results_{}.xml".format(name))
@@ -80,9 +89,11 @@ def main():
 
     suite = ET.Element("testsuite", {"name": "bbs"})
     passed, failed, known_failed, unexpected_pass = [], [], [], []
+    attempts = {}
 
     for name in names:
         cases, ok = read_scenario(args.results, name)
+        attempts[name] = read_attempts(args.results, name)
         for case in cases:
             suite.append(case)
         if ok:
@@ -101,7 +112,9 @@ def main():
 
     width = max(len(name) for name in names)
     for name in names:
-        if name in passed:
+        if name in passed and attempts[name] > 1:
+            status = "FLAKY  passed on attempt {}".format(attempts[name])
+        elif name in passed:
             status = "PASS"
         elif name in unexpected_pass:
             status = "PASS (listed as known-failing)"
@@ -112,8 +125,10 @@ def main():
         print("{:<{width}}  {}".format(name, status, width=width))
 
     print()
+    flaky = [name for name in passed if attempts[name] > 1]
     print("scenarios:   {}".format(len(names)))
-    print("passed:      {}".format(len(passed) + len(unexpected_pass)))
+    print("passed:      {} ({} of them only on a retry)".format(
+        len(passed) + len(unexpected_pass), len(flaky)))
     print("failed:      {}".format(len(failed)))
     print("known-fail:  {}".format(len(known_failed)))
     print("summary:     {}".format(args.output))

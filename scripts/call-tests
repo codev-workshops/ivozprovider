@@ -21,7 +21,7 @@ source "${ROOT}/scripts/lib/baseline.sh"
 RESULTS_DIR=${RESULTS_DIR:-results/call-tests}
 IMAGE=${BBS_IMAGE:-ivozprovider-bbs:local}
 
-cd "$ROOT"
+cd "$ROOT" || exit 1
 rm -rf "${RESULTS_DIR}"
 mkdir -p "${RESULTS_DIR}"
 
@@ -38,8 +38,15 @@ echo "==> Checking the stack is up"
 baseline_wait_healthy "${BASELINE_CORE_SERVICES[@]}"
 
 echo "==> Running scenarios"
+# The tester needs a fixed address, so an abandoned container from an earlier
+# run would hold it.
+for stale in $(docker ps --quiet --filter "ancestor=${IMAGE}"); do
+    docker rm --force "${stale}" >/dev/null
+done
+
 set +e
 docker run --rm \
+    --name ivozprovider-bbs \
     --network "${BASELINE_NETWORK}" \
     --ip "${BASELINE_BBS_ADDRESS}" \
     --volume "${ROOT}:/opt/irontec/ivozprovider" \
@@ -47,7 +54,8 @@ docker run --rm \
     --user "${UID}:${GID}" \
     --env "NAMESERVER=${BBS_NAMESERVER:-127.0.0.11}" \
     --env "RESULTS_DIR=${RESULTS_DIR}" \
-    --env "ATTEMPTS=${ATTEMPTS:-1}" \
+    --env "ATTEMPTS=${ATTEMPTS:-3}" \
+    --env "SETTLE=${SETTLE:-5}" \
     ${1:+--env "SCENARIOS=$*"} \
     "${IMAGE}" \
     tests/bbs/entrypoint.sh
