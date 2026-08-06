@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+#
+# Run every tests/bbs scenario against the running baseline stack and print a
+# pass/fail count per scenario.
+#
+# Builds the bbs image (github.com/irontec/bbs, see tests/bbs/Dockerfile), runs
+# tests/bbs/entrypoint.sh inside it on the compose network so the SIP domains
+# resolve, merges the per-scenario JUnit files into one summary and reports.
+#
+# Scenarios listed in tests/bbs/known-failures.yaml are still run and still
+# reported; they are counted separately so a known problem cannot hide a new
+# regression.
+#
+# Usage: ./scripts/call-tests [scenario.yaml...]
+set -euo pipefail
+
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+# shellcheck source=scripts/lib/baseline.sh
+source "${ROOT}/scripts/lib/baseline.sh"
+
+RESULTS_DIR=${RESULTS_DIR:-results/call-tests}
+IMAGE=${BBS_IMAGE:-ivozprovider-bbs:local}
+
+cd "$ROOT"
+rm -rf "${RESULTS_DIR}"
+mkdir -p "${RESULTS_DIR}"
+
+echo "==> Building ${IMAGE} from tests/bbs/Dockerfile"
+docker build --quiet \
+    --file tests/bbs/Dockerfile \
+    --tag "${IMAGE}" \
+    --build-arg UNAME=bbs \
+    --build-arg UID="${UID}" \
+    --build-arg GID="${GID}" \
+    tests/bbs
+
+echo "==> Checking the stack is up"
+baseline_wait_healthy "${BASELINE_CORE_SERVICES[@]}"
+
+echo "==> Running scenarios"
+set +e
+docker run --rm \
+    --network "${BASELINE_NETWORK}" \
+    --volume "${ROOT}:/opt/irontec/ivozprovider" \
+    --workdir /opt/irontec/ivozprovider \
+    --user "${UID}:${GID}" \
+    --env "NAMESERVER=${BBS_NAMESERVER:-127.0.0.11}" \
+    --env "RESULTS_DIR=${RESULTS_DIR}" \
+    --env "ATTEMPTS=${ATTEMPTS:-1}" \
+    ${1:+--env "SCENARIOS=$*"} \
+    "${IMAGE}" \
+    tests/bbs/entrypoint.sh
+set -e
+
+echo
+python3 "${ROOT}/scripts/lib/junit-summary.py" \
+    --results "${RESULTS_DIR}" \
+    --scenarios tests/bbs \
+    --known-failures tests/bbs/known-failures.yaml \
+    --output "${RESULTS_DIR}/junit.xml"

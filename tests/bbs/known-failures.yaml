@@ -1,0 +1,4 @@
+# Scenarios that do not pass on the legacy baseline, with the reason.
+# Format: <scenario file name without .yaml>: <reason>
+# They are still run and still reported; scripts/call-tests counts them
+# separately so a known problem cannot hide a new regression.

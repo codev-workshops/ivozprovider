@@ -33,6 +33,18 @@ baseline_newman run tests/bbs/dataset.json \
 status=$?
 set -e
 
+# On a real deployment the ivozprovider-realtime microservice watches the
+# database and pushes these reloads to each proxy as objects change. The
+# baseline has no realtime service, so the caches are refreshed here
+# instead, once, after the fixtures are in place.
+for proxy in users trunks; do
+    for rpc in domain.reload dispatcher.reload permissions.addressReload; do
+        baseline_compose exec -T "kamailio-${proxy}" \
+            kamcmd -s "unix:/run/kamailio/kamailio_proxy${proxy}_ctl" "${rpc}" \
+            >/dev/null 2>&1 || echo "  ${proxy}: ${rpc} not available" >&2
+    done
+done
+
 echo
 echo "Seeded objects:"
 baseline_mysql "
