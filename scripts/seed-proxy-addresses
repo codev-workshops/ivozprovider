@@ -1,0 +1,64 @@
+#!/bin/bash
+#
+# Point every "where does this component live" row at the compose addresses.
+#
+# On a real deployment this is what debian/ivozprovider.postinst setup_proxies()
+# does with the debconf answers; here the addresses are the fixed compose ones.
+# Idempotent: safe to run on every 'legacy-baseline up'.
+
+set -e
+
+# shellcheck source=scripts/lib/baseline.sh
+source "$(dirname "$(realpath "$0")")/lib/baseline.sh"
+
+info "Seeding proxy/application server addresses"
+
+mysql_stdin <<EOF
+-- debian/ivozprovider.postinst setup_proxies()
+UPDATE ProxyTrunks SET ip = '${TRUNKS_ADDRESS}';
+UPDATE ProxyUsers  SET ip = '${USERS_ADDRESS}';
+UPDATE Companies SET domain_users = '${USERS_ADDRESS}'
+    WHERE domain_users REGEXP '^([0-9]{1,3}\\\\.){3}[0-9]{1,3}\$';
+UPDATE Domains SET domain = '${USERS_ADDRESS}'
+    WHERE domain REGEXP '^([0-9]{1,3}\\\\.){3}[0-9]{1,3}\$';
+
+-- Application server and media relay, seeded as literals by schema/initial.sql
+UPDATE ApplicationServers SET ip = '${AS_ADDRESS}';
+UPDATE kam_dispatcher SET destination = 'sip:${AS_ADDRESS}:6060'
+    WHERE destination LIKE 'sip:%:6060';
+UPDATE kam_rtpengine SET url = 'udp:${MEDIA_RELAY_ADDRESS}:2223'
+    WHERE url LIKE 'udp:%:2223';
+
+-- The scenarios that place a call "from the world" (1100/1101/1102, 6000) send
+-- it straight to the trunks proxy, and kamailio only accepts an inbound call
+-- from an address registered for a DDI provider (GET_INFO_FROM_MATCHED_DDI in
+-- kamailio/trunks/config/kamailio.cfg). tests/bbs/dataset.json registers the
+-- two public addresses of the provider the scenarios were written against, so
+-- the bbs runner address has to be registered next to them.
+INSERT INTO DDIProviderAddresses (ddiProviderId, ip)
+SELECT dp.id, '${BBS_ADDRESS}' FROM DDIProviders dp
+WHERE NOT EXISTS (
+    SELECT 1 FROM DDIProviderAddresses dpa
+    WHERE dpa.ddiProviderId = dp.id AND dpa.ip = '${BBS_ADDRESS}'
+);
+
+-- kam_trunks_address is the permissions module view of the table above; the
+-- REST API keeps it in sync through the entity lifecycle, a plain INSERT has
+-- to write it as well.
+INSERT INTO kam_trunks_address (grp, ip_addr, mask, port, ddiProviderAddressId)
+SELECT dpa.ddiProviderId, dpa.ip, 32, 0, dpa.id
+FROM DDIProviderAddresses dpa
+WHERE dpa.ip = '${BBS_ADDRESS}'
+  AND NOT EXISTS (
+    SELECT 1 FROM kam_trunks_address a WHERE a.ddiProviderAddressId = dpa.id
+  );
+EOF
+
+info "ProxyUsers/ProxyTrunks/ApplicationServers now point at the compose stack:"
+mysql_query "SELECT 'ProxyUsers', name, ip FROM ProxyUsers"
+mysql_query "SELECT 'ProxyTrunks', name, ip FROM ProxyTrunks"
+mysql_query "SELECT 'ApplicationServers', name, ip FROM ApplicationServers"
+mysql_query "SELECT 'kam_rtpengine', setid, url FROM kam_rtpengine"
+mysql_query "SELECT 'kam_dispatcher', setid, destination FROM kam_dispatcher"
+
+kamailio_reload

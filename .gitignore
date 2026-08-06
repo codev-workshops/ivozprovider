@@ -19,3 +19,7 @@ web/portal/client/.history
 
 doc/html/*
 doc/doctrees/
+
+# Legacy baseline run artifacts (scripts/legacy-baseline, scripts/call-tests)
+var/baseline/
+results_*.xml

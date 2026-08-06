@@ -1,0 +1,78 @@
+#!/bin/bash
+#
+# Bring up the whole legacy platform on a docker-only machine.
+#
+#   ./scripts/legacy-baseline up      build + start everything and seed data
+#   ./scripts/legacy-baseline down    stop everything (keeps the db volume)
+#   ./scripts/legacy-baseline status  show the state of every service
+
+set -e
+
+# shellcheck source=scripts/lib/baseline.sh
+source "$(dirname "$(realpath "$0")")/lib/baseline.sh"
+
+DATA_SERVICES=(data redis)
+APP_SERVICES=(backend)
+PORTAL_SERVICES=(portal-platform portal-brand portal-client portal-user)
+SIP_SERVICES=(resolver kamailio-users kamailio-trunks asterisk rtpengine)
+
+# The portal services bind-mount a sibling checkout of ivoz-ui; without it they
+# cannot start, and none of the call tests need them.
+if [ -d "$ROOT/../ivoz-ui" ]; then
+    APP_SERVICES+=("${PORTAL_SERVICES[@]}")
+else
+    warn "../ivoz-ui checkout not found: skipping the portal-* services"
+fi
+
+function up() {
+    # docker-compose.yml bind-mounts it into the backend container; when docker
+    # has to create it, it ends up owned by root and composer falls back to
+    # cloning every dependency from source (and fails).
+    mkdir -p "$HOME/.cache/composer"
+
+    info "Building images"
+    compose build "${DATA_SERVICES[@]}" "${APP_SERVICES[@]}" "${SIP_SERVICES[@]}"
+
+    info "Starting database and cache"
+    compose up -d "${DATA_SERVICES[@]}"
+    wait_for_healthy data
+
+    # docker/backend/start.sh runs doctrine:migrations:migrate over the
+    # schema/initial.sql dump loaded by the data image
+    info "Starting backend and portals (runs migrations)"
+    compose up -d "${APP_SERVICES[@]}"
+    wait_for_healthy backend 900
+
+    "$ROOT/scripts/seed-bbs-dataset"
+    "$ROOT/scripts/seed-proxy-addresses"
+
+    info "Starting SIP and media services"
+    compose up -d "${SIP_SERVICES[@]}"
+    for service in "${SIP_SERVICES[@]}"; do
+        wait_for_healthy "$service" 300
+    done
+
+    # No-op on a cold start (the proxies read the seeded tables when they boot)
+    # but needed when 'up' is re-run over a stack that is already running.
+    kamailio_reload
+
+    info "Platform is up. Run ./scripts/call-tests to record the baseline."
+}
+
+function down() {
+    compose --profile tests down
+}
+
+function status() {
+    compose --profile tests ps
+}
+
+case "${1:-}" in
+    up)     up ;;
+    down)   down ;;
+    status) status ;;
+    *)
+        echo "Usage: $(basename "$0") up|down|status" >&2
+        exit 1
+        ;;
+esac

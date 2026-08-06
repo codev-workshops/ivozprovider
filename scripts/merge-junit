@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+"""Merge the per-scenario JUnit files bbs writes into a single report.
+
+Usage: merge-junit OUTPUT.xml INPUT.xml [INPUT.xml ...]
+
+Each tests/bbs scenario is run by tests/bbs/entrypoint.sh into its own
+results_<scenario>.xml; this glues them into one <testsuites> document and
+prints a per-scenario pass/fail line plus the totals.
+"""
+
+import os
+import sys
+import xml.etree.ElementTree as ET
+
+
+def scenario_name(path):
+    name = os.path.basename(path)
+    if name.startswith("results_"):
+        name = name[len("results_"):]
+    return os.path.splitext(name)[0]
+
+
+def counters(suite):
+    tests = int(suite.get("tests", 0))
+    failures = int(suite.get("failures", 0))
+    errors = int(suite.get("errors", 0))
+    skipped = int(suite.get("skipped", 0))
+    return tests, failures, errors, skipped
+
+
+def main():
+    if len(sys.argv) < 3:
+        print(__doc__, file=sys.stderr)
+        return 2
+
+    output = sys.argv[1]
+    inputs = sorted(sys.argv[2:])
+
+    merged = ET.Element("testsuites", {"name": "ivozprovider-bbs"})
+    totals = [0, 0, 0, 0]
+    time_total = 0.0
+    failed_scenarios = []
+
+    for path in inputs:
+        name = scenario_name(path)
+        try:
+            root = ET.parse(path).getroot()
+        except ET.ParseError as exception:
+            print(f"{name}: unparseable JUnit output ({exception})", file=sys.stderr)
+            failed_scenarios.append(name)
+            continue
+
+        suites = [root] if root.tag == "testsuite" else root.findall("testsuite")
+        scenario_totals = [0, 0, 0, 0]
+        for suite in suites:
+            suite.set("name", f"{name}.{suite.get('name', 'bbs')}")
+            merged.append(suite)
+            values = counters(suite)
+            scenario_totals = [a + b for a, b in zip(scenario_totals, values)]
+            time_total += float(suite.get("time", 0) or 0)
+
+        totals = [a + b for a, b in zip(totals, scenario_totals)]
+        tests, failures, errors, skipped = scenario_totals
+        passed = tests - failures - errors - skipped
+        state = "PASS" if failures + errors == 0 and tests > 0 else "FAIL"
+        if state == "FAIL":
+            failed_scenarios.append(name)
+        print(f"{state:4} {name:50} {passed}/{tests} passed")
+
+    tests, failures, errors, skipped = totals
+    passed = tests - failures - errors - skipped
+    merged.set("tests", str(tests))
+    merged.set("failures", str(failures))
+    merged.set("errors", str(errors))
+    merged.set("skipped", str(skipped))
+    merged.set("time", f"{time_total:.3f}")
+
+    ET.ElementTree(merged).write(output, encoding="utf-8", xml_declaration=True)
+
+    print()
+    print(f"scenarios : {len(inputs)} ({len(inputs) - len(failed_scenarios)} passing, "
+          f"{len(failed_scenarios)} failing)")
+    print(f"assertions: {passed}/{tests} passed ({failures} failures, {errors} errors, "
+          f"{skipped} skipped)")
+    print(f"report    : {output}")
+
+    if failed_scenarios:
+        print()
+        print("Non-passing scenarios:")
+        for name in failed_scenarios:
+            print(f"  - {name}")
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

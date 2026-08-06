@@ -1,0 +1,114 @@
+#!/usr/bin/env python3
+"""Compare two CDR dumps produced by scripts/extract-cdrs.
+
+Usage: compare-cdrs OLD.csv NEW.csv
+
+Exits non-zero and prints a readable diff when the two runs disagree on:
+  (a) total call count
+  (b) per-call duration
+  (c) billing fields (price, cost, destination)
+
+This is the harness a migrated stack is judged against: run the scenarios on
+the legacy stack, keep the CSV, run them again on the new stack and compare.
+"""
+
+import csv
+import sys
+from collections import Counter
+
+BILLING_FIELDS = ("price", "cost", "destination", "rating_plan", "carrier")
+# What makes two rows "the same call" across runs. Deliberately excludes the
+# synthetic call id, timestamps and durations.
+IDENTITY_FIELDS = ("source", "direction", "caller", "callee", "diversion")
+
+
+def load(path):
+    with open(path, newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def identity(row):
+    return tuple(row.get(field, "") for field in IDENTITY_FIELDS)
+
+
+def describe(key):
+    return " ".join(f"{field}={value or '-'}" for field, value in zip(IDENTITY_FIELDS, key))
+
+
+def compare_counts(old, new, problems):
+    old_calls = {row["call"] for row in old if row["call"]}
+    new_calls = {row["call"] for row in new if row["call"]}
+    if len(old_calls) != len(new_calls):
+        problems.append(
+            f"call count: {len(old_calls)} -> {len(new_calls)} "
+            f"({len(new_calls) - len(old_calls):+d})")
+
+    old_sources = Counter(row["source"] for row in old)
+    new_sources = Counter(row["source"] for row in new)
+    for source in sorted(set(old_sources) | set(new_sources)):
+        if old_sources[source] != new_sources[source]:
+            problems.append(
+                f"{source} rows: {old_sources[source]} -> {new_sources[source]}")
+
+
+def group(rows):
+    grouped = {}
+    for row in rows:
+        grouped.setdefault(identity(row), []).append(row)
+    for values in grouped.values():
+        values.sort(key=lambda row: row["call"])
+    return grouped
+
+
+def compare_rows(old, new, problems):
+    old_groups = group(old)
+    new_groups = group(new)
+
+    for key in sorted(set(old_groups) | set(new_groups)):
+        old_rows = old_groups.get(key, [])
+        new_rows = new_groups.get(key, [])
+
+        if len(old_rows) != len(new_rows):
+            problems.append(
+                f"{describe(key)}: {len(old_rows)} row(s) -> {len(new_rows)} row(s)")
+
+        for index, (old_row, new_row) in enumerate(zip(old_rows, new_rows)):
+            prefix = f"{describe(key)} [#{index + 1}]"
+            if old_row["duration"] != new_row["duration"]:
+                problems.append(
+                    f"{prefix}: duration {old_row['duration']}s -> {new_row['duration']}s")
+            for field in BILLING_FIELDS:
+                if old_row.get(field, "") != new_row.get(field, ""):
+                    problems.append(
+                        f"{prefix}: {field} "
+                        f"{old_row.get(field) or '-'} -> {new_row.get(field) or '-'}")
+
+
+def main():
+    if len(sys.argv) != 3:
+        print(__doc__, file=sys.stderr)
+        return 2
+
+    old_path, new_path = sys.argv[1], sys.argv[2]
+    old = load(old_path)
+    new = load(new_path)
+
+    problems = []
+    compare_counts(old, new, problems)
+    compare_rows(old, new, problems)
+
+    print(f"old: {old_path} ({len(old)} rows)")
+    print(f"new: {new_path} ({len(new)} rows)")
+
+    if not problems:
+        print("\nNo differences in call count, durations or billing fields.")
+        return 0
+
+    print(f"\n{len(problems)} difference(s):\n")
+    for problem in problems:
+        print(f"  - {problem}")
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
